@@ -1,12 +1,14 @@
 /**
  * Permission Manager - Handles web permission requests with persistent storage
  * Supports: clipboard-read, clipboard-write, geolocation, notifications, camera, microphone
+ *
+ * NOTE: This module uses the global variable pattern (var permissionManager = {...})
+ * because main.build.js concatenates files directly without a module system.
+ * The module.exports at the end is kept for compatibility but not used in the build.
  */
 
-// Note: ipc is already defined in main.js and available globally in the built file
-
 // Permission type mapping from Electron to internal types
-const permissionTypeMap = {
+var permissionTypeMap = {
   "clipboard-read": "clipboard-read",
   "clipboard-write": "clipboard-write",
   "clipboard-sanitized-write": "clipboard-write",
@@ -24,7 +26,7 @@ const permissionTypeMap = {
 };
 
 // Permission descriptions for UI
-const permissionDescriptions = {
+var permissionDescriptions = {
   "clipboard-read": {
     title: "Access Clipboard",
     description: "wants to read text from your clipboard",
@@ -59,474 +61,425 @@ const permissionDescriptions = {
   },
 };
 
-// Get stored site permissions from settings
-function getSitePermissions() {
-  return settings.get("sitePermissions") || {};
-}
-
-// Save site permissions to settings
-function saveSitePermissions(permissions) {
-  settings.set("sitePermissions", permissions);
-}
-
 /**
- * Get permission decision for a specific site and type
- * @param {string} site - Site origin (hostname)
- * @param {string} type - Permission type
- * @returns {string|null} - 'granted', 'denied', or null if not set
+ * Permission Manager module
+ * Exposes all permission-related functionality as a global object
  */
-function getPermission(site, type) {
-  const permissions = getSitePermissions();
-  if (permissions[site] && permissions[site][type]) {
-    return permissions[site][type];
-  }
-  return null;
-}
+var permissionManager = {
+  // Internal state - injected dependency for finding windows from view contents
+  _getWindowFromViewContents: null,
 
-/**
- * Set permission decision for a specific site and type
- * @param {string} site - Site origin (hostname)
- * @param {string} type - Permission type
- * @param {string} decision - 'granted' or 'denied'
- * @param {boolean} remember - Whether to persist this decision
- */
-function setPermission(site, type, decision, remember = true) {
-  if (!remember) {
-    return;
-  }
+  /**
+   * Get stored site permissions from settings
+   * @returns {Object} - Permissions object keyed by site
+   */
+  getSitePermissions: function () {
+    return settings.get("sitePermissions") || {};
+  },
 
-  const permissions = getSitePermissions();
-  if (!permissions[site]) {
-    permissions[site] = {};
-  }
-  permissions[site][type] = decision;
-  saveSitePermissions(permissions);
-}
+  /**
+   * Save site permissions to settings
+   * @param {Object} permissions - Permissions object to save
+   */
+  saveSitePermissions: function (permissions) {
+    settings.set("sitePermissions", permissions);
+  },
 
-/**
- * Clear permission for a specific site and type
- * @param {string} site - Site origin
- * @param {string} type - Permission type
- */
-function clearPermission(site, type) {
-  const permissions = getSitePermissions();
-  if (permissions[site]) {
-    delete permissions[site][type];
-    // Clean up empty site entries
-    if (Object.keys(permissions[site]).length === 0) {
-      delete permissions[site];
+  /**
+   * Get permission decision for a specific site and type
+   * @param {string} site - Site origin (hostname)
+   * @param {string} type - Permission type
+   * @returns {string|null} - 'granted', 'denied', or null if not set
+   */
+  getPermission: function (site, type) {
+    var permissions = permissionManager.getSitePermissions();
+    if (permissions[site] && permissions[site][type]) {
+      return permissions[site][type];
     }
-    saveSitePermissions(permissions);
-  }
-}
+    return null;
+  },
 
-/**
- * Clear all permissions for a specific site
- * @param {string} site - Site origin
- */
-function clearSitePermissions(site) {
-  const permissions = getSitePermissions();
-  if (permissions[site]) {
-    delete permissions[site];
-    saveSitePermissions(permissions);
-  }
-}
-
-/**
- * Clear all site permissions
- */
-function clearAllPermissions() {
-  settings.set("sitePermissions", {});
-}
-
-/**
- * Get all permissions organized by site
- * @returns {Object} - Permissions object keyed by site
- */
-function getAllPermissions() {
-  return getSitePermissions();
-}
-
-/**
- * Map Electron permission to internal type
- * @param {string} electronPermission - Permission string from Electron
- * @param {Object} details - Permission details
- * @returns {string|null} - Internal permission type
- */
-function mapElectronPermission(electronPermission, details) {
-  // Handle media permissions specially
-  if (electronPermission === "media") {
-    if (details.mediaTypes) {
-      if (details.mediaTypes.includes("video")) {
-        return "camera";
-      }
-      if (details.mediaTypes.includes("audio")) {
-        return "microphone";
-      }
-    }
-    if (details.mediaType === "video") {
-      return "camera";
-    }
-    if (details.mediaType === "audio") {
-      return "microphone";
-    }
-    return "media";
-  }
-
-  return permissionTypeMap[electronPermission] || null;
-}
-
-/**
- * Check if permission should be handled by our system
- * @param {string} permissionType - Internal permission type
- * @returns {boolean}
- */
-function isSupportedPermission(permissionType) {
-  return [
-    "clipboard-read",
-    "clipboard-write",
-    "geolocation",
-    "notifications",
-    "camera",
-    "microphone",
-    "media",
-    "pointerLock",
-  ].includes(permissionType);
-}
-
-/**
- * Get permission description for UI
- * @param {string} permissionType - Internal permission type
- * @returns {Object} - Title and description
- */
-function getPermissionDescription(permissionType) {
-  return (
-    permissionDescriptions[permissionType] || {
-      title: "Request Permission",
-      description: "wants to access a device feature",
-    }
-  );
-}
-
-/**
- * Request permission from user via dialog
- * @param {string} site - Site origin
- * @param {string} permissionType - Internal permission type
- * @param {Object} webContents - Electron webContents
- * @returns {Promise<boolean>} - User decision
- */
-async function requestPermissionFromUser(site, permissionType, webContents) {
-  const DEBUG = true; // Set to false in production
-
-  return new Promise(function (resolve) {
-    const description = getPermissionDescription(permissionType);
-    const permissionRequest = {
-      site: site,
-      permissionType: permissionType,
-      title: description.title,
-      description: description.description,
-      webContentsId: webContents.id,
-    };
-
-    // Send request to renderer to show dialog
-    // Use getWindowFromViewContents (injected) to find the window that owns this view's webContents
-    // This is necessary because WebContentsView webContents are different from window webContents
-    const window = _getWindowFromViewContents
-      ? _getWindowFromViewContents(webContents)
-      : null;
-
-    if (DEBUG) {
-      console.log("[PermissionManager] requestPermissionFromUser:");
-      console.log(
-        "[PermissionManager]   _getWindowFromViewContents available:",
-        !!_getWindowFromViewContents
-      );
-      console.log("[PermissionManager]   window found:", !!window);
-      console.log("[PermissionManager]   webContents.id:", webContents.id);
-    }
-
-    if (!window) {
-      console.warn(
-        "[PermissionManager] Could not find window for webContents. " +
-          "Ensure initialize() was called with getWindowFromViewContents dependency."
-      );
-      resolve(false);
+  /**
+   * Set permission decision for a specific site and type
+   * @param {string} site - Site origin (hostname)
+   * @param {string} type - Permission type
+   * @param {string} decision - 'granted' or 'denied'
+   * @param {boolean} remember - Whether to persist this decision
+   */
+  setPermission: function (site, type, decision, remember) {
+    if (remember === false) {
       return;
     }
 
-    if (DEBUG)
-      console.log("[PermissionManager]   Sending showPermissionDialog IPC...");
-    sendIPCToWindow(window, "showPermissionDialog", permissionRequest);
-
-    // Listen for response
-    const responseHandler = function (e, response) {
-      if (
-        response.site === site &&
-        response.permissionType === permissionType
-      ) {
-        if (DEBUG)
-          console.log(
-            "[PermissionManager]   Response received from dialog:",
-            response
-          );
-        ipc.removeListener("permissionDialogResponse", responseHandler);
-        resolve(response.granted);
-      }
-    };
-
-    ipc.once("permissionDialogResponse", responseHandler);
-
-    // Timeout after 5 minutes (user might ignore dialog)
-    setTimeout(function () {
-      ipc.removeListener("permissionDialogResponse", responseHandler);
-      if (DEBUG)
-        console.log("[PermissionManager]   Dialog timed out (5 minutes)");
-      resolve(false);
-    }, 300000);
-  });
-}
-
-/**
- * Handle permission request from webview
- * @param {Object} webContents - Electron webContents
- * @param {string} permission - Electron permission type
- * @param {function} callback - Callback with decision
- * @param {Object} details - Permission details
- */
-async function pagePermissionRequestHandler(
-  webContents,
-  permission,
-  callback,
-  details
-) {
-  const DEBUG = true; // Set to false in production
-
-  if (DEBUG) {
-    console.log("[PermissionManager] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("[PermissionManager] Permission request received:");
-    console.log("[PermissionManager]   permission:", permission);
-    console.log("[PermissionManager]   requestingUrl:", details.requestingUrl);
-    console.log("[PermissionManager]   isMainFrame:", details.isMainFrame);
-    console.log("[PermissionManager]   mediaTypes:", details.mediaTypes);
-  }
-
-  // Always allow fullscreen
-  if (permission === "fullscreen") {
-    if (DEBUG) console.log("[PermissionManager] → Auto-allowing fullscreen");
-    callback(true);
-    return;
-  }
-
-  // Always allow sanitized clipboard write
-  if (permission === "clipboard-sanitized-write") {
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → Auto-allowing clipboard-sanitized-write"
-      );
-    callback(true);
-    return;
-  }
-
-  // Only handle main frame requests for simplicity
-  if (!details.isMainFrame) {
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → Denying: not main frame (iframe request)"
-      );
-    callback(false);
-    return;
-  }
-
-  if (!details.requestingUrl) {
-    if (DEBUG) console.log("[PermissionManager] → Denying: no requestingUrl");
-    callback(false);
-    return;
-  }
-
-  // Parse origin
-  let site;
-  try {
-    site = new URL(details.requestingUrl).hostname;
-  } catch (e) {
-    console.warn(
-      "[PermissionManager] Invalid URL in permission request:",
-      details.requestingUrl
-    );
-    callback(false);
-    return;
-  }
-
-  // Map to internal permission type
-  const permissionType = mapElectronPermission(permission, details);
-  if (DEBUG)
-    console.log(
-      "[PermissionManager]   site:",
-      site,
-      "→ permissionType:",
-      permissionType
-    );
-
-  if (!permissionType || !isSupportedPermission(permissionType)) {
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → Denying: permission type not supported"
-      );
-    callback(false);
-    return;
-  }
-
-  // Check stored permission
-  const storedDecision = getPermission(site, permissionType);
-  if (DEBUG)
-    console.log("[PermissionManager]   storedDecision:", storedDecision);
-
-  if (storedDecision === "granted") {
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → Auto-granting: stored decision is 'granted'"
-      );
-    callback(true);
-    return;
-  }
-
-  if (storedDecision === "denied") {
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → Auto-denying: stored decision is 'denied'"
-      );
-    callback(false);
-    return;
-  }
-
-  // No stored decision, show dialog
-  if (DEBUG)
-    console.log("[PermissionManager] → No stored decision, showing dialog...");
-  try {
-    const granted = await requestPermissionFromUser(
-      site,
-      permissionType,
-      webContents
-    );
-    if (DEBUG)
-      console.log(
-        "[PermissionManager] → User decision:",
-        granted ? "GRANTED" : "DENIED"
-      );
-    callback(granted);
-  } catch (e) {
-    console.error("Error requesting permission:", e);
-    callback(false);
-  }
-}
-
-/**
- * Handle permission check from webview
- * @param {Object} webContents - Electron webContents
- * @param {string} permission - Electron permission type
- * @param {string} requestingOrigin - Requesting origin
- * @param {Object} details - Permission details
- * @returns {boolean} - Whether permission is granted
- */
-function pagePermissionCheckHandler(
-  webContents,
-  permission,
-  requestingOrigin,
-  details
-) {
-  // Allow iframe requests from same origin
-  if (!details.isMainFrame && requestingOrigin !== details.embeddingOrigin) {
-    return false;
-  }
-
-  if (!requestingOrigin) {
-    return false;
-  }
-
-  // Always allow sanitized clipboard write
-  if (permission === "clipboard-sanitized-write") {
-    return true;
-  }
-
-  // Parse origin
-  let site;
-  try {
-    site = new URL(requestingOrigin).hostname;
-  } catch (e) {
-    console.warn("Invalid URL in permission check:", requestingOrigin);
-    return false;
-  }
-
-  // Map to internal permission type
-  const permissionType = mapElectronPermission(permission, details);
-
-  if (!permissionType || !isSupportedPermission(permissionType)) {
-    return false;
-  }
-
-  // Check stored permission
-  const storedDecision = getPermission(site, permissionType);
-  return storedDecision === "granted";
-}
-
-// Helper functions - injected via initialize() to handle build order dependencies
-// getWindowFromViewContents is defined in viewManager.js (loaded after permissionManager.js)
-// sendIPCToWindow is defined in main.js and available globally
-let _getWindowFromViewContents = null;
-
-/**
- * Initialize permission manager with required dependencies
- * @param {Object} deps - Dependencies object
- * @param {Function} deps.getWindowFromViewContents - Function to get window from view webContents
- */
-function initialize(deps) {
-  if (deps && deps.getWindowFromViewContents) {
-    _getWindowFromViewContents = deps.getWindowFromViewContents;
-  }
-
-  // Register IPC handlers
-  ipc.on("permission:set", function (e, data) {
-    setPermission(data.site, data.permissionType, data.decision, data.remember);
-  });
-
-  ipc.on("permission:get", function (e, data) {
-    const decision = getPermission(data.site, data.permissionType);
-    e.returnValue = decision;
-  });
-
-  ipc.on("permission:clear", function (e, data) {
-    if (data.site && data.permissionType) {
-      clearPermission(data.site, data.permissionType);
-    } else if (data.site) {
-      clearSitePermissions(data.site);
-    } else {
-      clearAllPermissions();
+    var permissions = permissionManager.getSitePermissions();
+    if (!permissions[site]) {
+      permissions[site] = {};
     }
-  });
+    permissions[site][type] = decision;
+    permissionManager.saveSitePermissions(permissions);
+  },
 
-  ipc.on("permission:getAll", function (e) {
-    e.returnValue = getAllPermissions();
-  });
-}
+  /**
+   * Clear permission for a specific site and type
+   * @param {string} site - Site origin
+   * @param {string} type - Permission type
+   */
+  clearPermission: function (site, type) {
+    var permissions = permissionManager.getSitePermissions();
+    if (permissions[site]) {
+      delete permissions[site][type];
+      // Clean up empty site entries
+      if (Object.keys(permissions[site]).length === 0) {
+        delete permissions[site];
+      }
+      permissionManager.saveSitePermissions(permissions);
+    }
+  },
 
-/**
- * Get permission handlers for Electron session
- * @returns {Object} - Permission request and check handlers
- */
-function getHandlers() {
-  return {
-    requestHandler: pagePermissionRequestHandler,
-    checkHandler: pagePermissionCheckHandler,
-  };
-}
+  /**
+   * Clear all permissions for a specific site
+   * @param {string} site - Site origin
+   */
+  clearSitePermissions: function (site) {
+    var permissions = permissionManager.getSitePermissions();
+    if (permissions[site]) {
+      delete permissions[site];
+      permissionManager.saveSitePermissions(permissions);
+    }
+  },
 
-module.exports = {
-  initialize,
-  getHandlers,
-  getPermission,
-  setPermission,
-  clearPermission,
-  clearSitePermissions,
-  clearAllPermissions,
-  getAllPermissions,
-  getPermissionDescription,
+  /**
+   * Clear all site permissions
+   */
+  clearAllPermissions: function () {
+    settings.set("sitePermissions", {});
+  },
+
+  /**
+   * Get all permissions organized by site
+   * @returns {Object} - Permissions object keyed by site
+   */
+  getAllPermissions: function () {
+    return permissionManager.getSitePermissions();
+  },
+
+  /**
+   * Map Electron permission to internal type
+   * @param {string} electronPermission - Permission string from Electron
+   * @param {Object} details - Permission details
+   * @returns {string|null} - Internal permission type
+   */
+  mapElectronPermission: function (electronPermission, details) {
+    // Handle media permissions specially
+    if (electronPermission === "media") {
+      if (details.mediaTypes) {
+        if (details.mediaTypes.includes("video")) {
+          return "camera";
+        }
+        if (details.mediaTypes.includes("audio")) {
+          return "microphone";
+        }
+      }
+      if (details.mediaType === "video") {
+        return "camera";
+      }
+      if (details.mediaType === "audio") {
+        return "microphone";
+      }
+      return "media";
+    }
+
+    return permissionTypeMap[electronPermission] || null;
+  },
+
+  /**
+   * Check if permission should be handled by our system
+   * @param {string} permissionType - Internal permission type
+   * @returns {boolean}
+   */
+  isSupportedPermission: function (permissionType) {
+    return [
+      "clipboard-read",
+      "clipboard-write",
+      "geolocation",
+      "notifications",
+      "camera",
+      "microphone",
+      "media",
+      "pointerLock",
+    ].includes(permissionType);
+  },
+
+  /**
+   * Get permission description for UI
+   * @param {string} permissionType - Internal permission type
+   * @returns {Object} - Title and description
+   */
+  getPermissionDescription: function (permissionType) {
+    return (
+      permissionDescriptions[permissionType] || {
+        title: "Request Permission",
+        description: "wants to access a device feature",
+      }
+    );
+  },
+
+  /**
+   * Request permission from user via dialog
+   * @param {string} site - Site origin
+   * @param {string} permissionType - Internal permission type
+   * @param {Object} webContents - Electron webContents
+   * @returns {Promise<boolean>} - User decision
+   */
+  requestPermissionFromUser: function (site, permissionType, webContents) {
+    return new Promise(function (resolve) {
+      var description =
+        permissionManager.getPermissionDescription(permissionType);
+      var permissionRequest = {
+        site: site,
+        permissionType: permissionType,
+        title: description.title,
+        description: description.description,
+        webContentsId: webContents.id,
+      };
+
+      // Use the injected function to find the window that owns this view's webContents
+      var win = permissionManager._getWindowFromViewContents
+        ? permissionManager._getWindowFromViewContents(webContents)
+        : null;
+
+      if (!win) {
+        console.warn(
+          "[PermissionManager] Could not find window for webContents. Denying permission."
+        );
+        resolve(false);
+        return;
+      }
+
+      sendIPCToWindow(win, "showPermissionDialog", permissionRequest);
+
+      // Listen for response
+      var responseHandler = function (e, response) {
+        if (
+          response.site === site &&
+          response.permissionType === permissionType
+        ) {
+          ipc.removeListener("permissionDialogResponse", responseHandler);
+          resolve(response.granted);
+        }
+      };
+
+      ipc.on("permissionDialogResponse", responseHandler);
+
+      // Timeout after 5 minutes (user might ignore dialog)
+      setTimeout(function () {
+        ipc.removeListener("permissionDialogResponse", responseHandler);
+        resolve(false);
+      }, 300000);
+    });
+  },
+
+  /**
+   * Handle permission request from webview
+   * @param {Object} webContents - Electron webContents
+   * @param {string} permission - Electron permission type
+   * @param {function} callback - Callback with decision
+   * @param {Object} details - Permission details
+   */
+  pagePermissionRequestHandler: function (
+    webContents,
+    permission,
+    callback,
+    details
+  ) {
+    // Always allow fullscreen
+    if (permission === "fullscreen") {
+      callback(true);
+      return;
+    }
+
+    // Always allow sanitized clipboard write
+    if (permission === "clipboard-sanitized-write") {
+      callback(true);
+      return;
+    }
+
+    // Only handle main frame requests for simplicity
+    if (!details.isMainFrame) {
+      callback(false);
+      return;
+    }
+
+    if (!details.requestingUrl) {
+      callback(false);
+      return;
+    }
+
+    // Parse origin
+    var site;
+    try {
+      site = new URL(details.requestingUrl).hostname;
+    } catch (e) {
+      console.warn(
+        "[PermissionManager] Invalid URL in permission request:",
+        details.requestingUrl
+      );
+      callback(false);
+      return;
+    }
+
+    // Map to internal permission type
+    var permissionType = permissionManager.mapElectronPermission(
+      permission,
+      details
+    );
+
+    if (
+      !permissionType ||
+      !permissionManager.isSupportedPermission(permissionType)
+    ) {
+      callback(false);
+      return;
+    }
+
+    // Check stored permission
+    var storedDecision = permissionManager.getPermission(site, permissionType);
+
+    if (storedDecision === "granted") {
+      callback(true);
+      return;
+    }
+
+    if (storedDecision === "denied") {
+      callback(false);
+      return;
+    }
+
+    // No stored decision, show dialog
+    permissionManager
+      .requestPermissionFromUser(site, permissionType, webContents)
+      .then(function (granted) {
+        callback(granted);
+      })
+      .catch(function (e) {
+        console.error("[PermissionManager] Error requesting permission:", e);
+        callback(false);
+      });
+  },
+
+  /**
+   * Handle permission check from webview
+   * @param {Object} webContents - Electron webContents
+   * @param {string} permission - Electron permission type
+   * @param {string} requestingOrigin - Requesting origin
+   * @param {Object} details - Permission details
+   * @returns {boolean} - Whether permission is granted
+   */
+  pagePermissionCheckHandler: function (
+    webContents,
+    permission,
+    requestingOrigin,
+    details
+  ) {
+    // Allow iframe requests from same origin
+    if (!details.isMainFrame && requestingOrigin !== details.embeddingOrigin) {
+      return false;
+    }
+
+    if (!requestingOrigin) {
+      return false;
+    }
+
+    // Always allow sanitized clipboard write
+    if (permission === "clipboard-sanitized-write") {
+      return true;
+    }
+
+    // Parse origin
+    var site;
+    try {
+      site = new URL(requestingOrigin).hostname;
+    } catch (e) {
+      console.warn(
+        "[PermissionManager] Invalid URL in permission check:",
+        requestingOrigin
+      );
+      return false;
+    }
+
+    // Map to internal permission type
+    var permissionType = permissionManager.mapElectronPermission(
+      permission,
+      details
+    );
+
+    if (
+      !permissionType ||
+      !permissionManager.isSupportedPermission(permissionType)
+    ) {
+      return false;
+    }
+
+    // Check stored permission
+    var storedDecision = permissionManager.getPermission(site, permissionType);
+    return storedDecision === "granted";
+  },
+
+  /**
+   * Initialize permission manager with required dependencies
+   * @param {Object} deps - Dependencies object
+   * @param {Function} deps.getWindowFromViewContents - Function to get window from view webContents
+   */
+  initialize: function (deps) {
+    if (deps && deps.getWindowFromViewContents) {
+      permissionManager._getWindowFromViewContents =
+        deps.getWindowFromViewContents;
+    }
+
+    // Register IPC handlers
+    ipc.on("permission:set", function (e, data) {
+      permissionManager.setPermission(
+        data.site,
+        data.permissionType,
+        data.decision,
+        data.remember
+      );
+    });
+
+    ipc.on("permission:get", function (e, data) {
+      var decision = permissionManager.getPermission(
+        data.site,
+        data.permissionType
+      );
+      e.returnValue = decision;
+    });
+
+    ipc.on("permission:clear", function (e, data) {
+      if (data.site && data.permissionType) {
+        permissionManager.clearPermission(data.site, data.permissionType);
+      } else if (data.site) {
+        permissionManager.clearSitePermissions(data.site);
+      } else {
+        permissionManager.clearAllPermissions();
+      }
+    });
+
+    ipc.on("permission:getAll", function (e) {
+      e.returnValue = permissionManager.getAllPermissions();
+    });
+  },
+
+  /**
+   * Get permission handlers for Electron session
+   * @returns {Object} - Permission request and check handlers
+   */
+  getHandlers: function () {
+    return {
+      requestHandler: permissionManager.pagePermissionRequestHandler,
+      checkHandler: permissionManager.pagePermissionCheckHandler,
+    };
+  },
 };
+
+// Export for compatibility (not used in concatenated build)
+module.exports = permissionManager;
