@@ -216,6 +216,8 @@ function getPermissionDescription(permissionType) {
  * @returns {Promise<boolean>} - User decision
  */
 async function requestPermissionFromUser(site, permissionType, webContents) {
+  const DEBUG = true; // Set to false in production
+
   return new Promise(function (resolve) {
     const description = getPermissionDescription(permissionType);
     const permissionRequest = {
@@ -227,31 +229,60 @@ async function requestPermissionFromUser(site, permissionType, webContents) {
     };
 
     // Send request to renderer to show dialog
-    const window = getWindowFromWebContents(webContents);
-    if (window) {
-      sendIPCToWindow(window, "showPermissionDialog", permissionRequest);
+    // Use getWindowFromViewContents (injected) to find the window that owns this view's webContents
+    // This is necessary because WebContentsView webContents are different from window webContents
+    const window = _getWindowFromViewContents
+      ? _getWindowFromViewContents(webContents)
+      : null;
 
-      // Listen for response
-      const responseHandler = function (e, response) {
-        if (
-          response.site === site &&
-          response.permissionType === permissionType
-        ) {
-          ipc.removeListener("permissionDialogResponse", responseHandler);
-          resolve(response.granted);
-        }
-      };
-
-      ipc.once("permissionDialogResponse", responseHandler);
-
-      // Timeout after 5 minutes (user might ignore dialog)
-      setTimeout(function () {
-        ipc.removeListener("permissionDialogResponse", responseHandler);
-        resolve(false);
-      }, 300000);
-    } else {
-      resolve(false);
+    if (DEBUG) {
+      console.log("[PermissionManager] requestPermissionFromUser:");
+      console.log(
+        "[PermissionManager]   _getWindowFromViewContents available:",
+        !!_getWindowFromViewContents
+      );
+      console.log("[PermissionManager]   window found:", !!window);
+      console.log("[PermissionManager]   webContents.id:", webContents.id);
     }
+
+    if (!window) {
+      console.warn(
+        "[PermissionManager] Could not find window for webContents. " +
+          "Ensure initialize() was called with getWindowFromViewContents dependency."
+      );
+      resolve(false);
+      return;
+    }
+
+    if (DEBUG)
+      console.log("[PermissionManager]   Sending showPermissionDialog IPC...");
+    sendIPCToWindow(window, "showPermissionDialog", permissionRequest);
+
+    // Listen for response
+    const responseHandler = function (e, response) {
+      if (
+        response.site === site &&
+        response.permissionType === permissionType
+      ) {
+        if (DEBUG)
+          console.log(
+            "[PermissionManager]   Response received from dialog:",
+            response
+          );
+        ipc.removeListener("permissionDialogResponse", responseHandler);
+        resolve(response.granted);
+      }
+    };
+
+    ipc.once("permissionDialogResponse", responseHandler);
+
+    // Timeout after 5 minutes (user might ignore dialog)
+    setTimeout(function () {
+      ipc.removeListener("permissionDialogResponse", responseHandler);
+      if (DEBUG)
+        console.log("[PermissionManager]   Dialog timed out (5 minutes)");
+      resolve(false);
+    }, 300000);
   });
 }
 
@@ -268,25 +299,46 @@ async function pagePermissionRequestHandler(
   callback,
   details
 ) {
+  const DEBUG = true; // Set to false in production
+
+  if (DEBUG) {
+    console.log("[PermissionManager] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[PermissionManager] Permission request received:");
+    console.log("[PermissionManager]   permission:", permission);
+    console.log("[PermissionManager]   requestingUrl:", details.requestingUrl);
+    console.log("[PermissionManager]   isMainFrame:", details.isMainFrame);
+    console.log("[PermissionManager]   mediaTypes:", details.mediaTypes);
+  }
+
   // Always allow fullscreen
   if (permission === "fullscreen") {
+    if (DEBUG) console.log("[PermissionManager] → Auto-allowing fullscreen");
     callback(true);
     return;
   }
 
   // Always allow sanitized clipboard write
   if (permission === "clipboard-sanitized-write") {
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → Auto-allowing clipboard-sanitized-write"
+      );
     callback(true);
     return;
   }
 
   // Only handle main frame requests for simplicity
   if (!details.isMainFrame) {
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → Denying: not main frame (iframe request)"
+      );
     callback(false);
     return;
   }
 
   if (!details.requestingUrl) {
+    if (DEBUG) console.log("[PermissionManager] → Denying: no requestingUrl");
     callback(false);
     return;
   }
@@ -296,40 +348,70 @@ async function pagePermissionRequestHandler(
   try {
     site = new URL(details.requestingUrl).hostname;
   } catch (e) {
-    console.warn("Invalid URL in permission request:", details.requestingUrl);
+    console.warn(
+      "[PermissionManager] Invalid URL in permission request:",
+      details.requestingUrl
+    );
     callback(false);
     return;
   }
 
   // Map to internal permission type
   const permissionType = mapElectronPermission(permission, details);
+  if (DEBUG)
+    console.log(
+      "[PermissionManager]   site:",
+      site,
+      "→ permissionType:",
+      permissionType
+    );
 
   if (!permissionType || !isSupportedPermission(permissionType)) {
-    // Permission not supported by our system
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → Denying: permission type not supported"
+      );
     callback(false);
     return;
   }
 
   // Check stored permission
   const storedDecision = getPermission(site, permissionType);
+  if (DEBUG)
+    console.log("[PermissionManager]   storedDecision:", storedDecision);
 
   if (storedDecision === "granted") {
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → Auto-granting: stored decision is 'granted'"
+      );
     callback(true);
     return;
   }
 
   if (storedDecision === "denied") {
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → Auto-denying: stored decision is 'denied'"
+      );
     callback(false);
     return;
   }
 
   // No stored decision, show dialog
+  if (DEBUG)
+    console.log("[PermissionManager] → No stored decision, showing dialog...");
   try {
     const granted = await requestPermissionFromUser(
       site,
       permissionType,
       webContents
     );
+    if (DEBUG)
+      console.log(
+        "[PermissionManager] → User decision:",
+        granted ? "GRANTED" : "DENIED"
+      );
     callback(granted);
   } catch (e) {
     console.error("Error requesting permission:", e);
@@ -386,16 +468,20 @@ function pagePermissionCheckHandler(
   return storedDecision === "granted";
 }
 
-// Helper functions - these are defined in main.js and available globally in the built file
-// getWindowFromWebContents and sendIPCToWindow are provided by main.js
+// Helper functions - injected via initialize() to handle build order dependencies
+// getWindowFromViewContents is defined in viewManager.js (loaded after permissionManager.js)
+// sendIPCToWindow is defined in main.js and available globally
+let _getWindowFromViewContents = null;
 
 /**
  * Initialize permission manager with required dependencies
- * @param {Object} deps - Dependencies from main.js
+ * @param {Object} deps - Dependencies object
+ * @param {Function} deps.getWindowFromViewContents - Function to get window from view webContents
  */
 function initialize(deps) {
-  // These functions are already available globally from main.js
-  // No need to reassign them
+  if (deps && deps.getWindowFromViewContents) {
+    _getWindowFromViewContents = deps.getWindowFromViewContents;
+  }
 
   // Register IPC handlers
   ipc.on("permission:set", function (e, data) {

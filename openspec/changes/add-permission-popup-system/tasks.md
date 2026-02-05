@@ -50,6 +50,7 @@
 - [x] 4.5 Test integration with all supported permission types
 - [x] 4.6 Handle edge case: multiple rapid permission requests
 - [x] 4.7 Handle edge case: permission request while modal already open
+- [x] 4.8 **BUG FIX**: Use `getWindowFromViewContents` instead of `getWindowFromWebContents` to correctly find the parent window of WebContentsView tabs (the original function only matched main window webContents, not tab webContents)
 
 ## 5. Testing & Validation
 

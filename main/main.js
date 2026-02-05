@@ -432,9 +432,10 @@ app.on("ready", function () {
   createDockMenu();
 
   // Initialize permission manager
+  // Note: getWindowFromViewContents is defined in viewManager.js but available here
+  // because app.on('ready') fires after all modules are loaded in the bundle
   permissionManager.initialize({
-    getWindowFromWebContents: getWindowFromWebContents,
-    sendIPCToWindow: sendIPCToWindow,
+    getWindowFromViewContents: getWindowFromViewContents,
   });
 
   // Register permission handlers for default session
