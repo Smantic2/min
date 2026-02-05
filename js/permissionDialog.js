@@ -7,7 +7,6 @@
  */
 
 var webviews = require("webviews.js");
-var tabState = require("tabState.js");
 
 // Permission icon SVGs (using inline SVG for minimal dependencies)
 var permissionIcons = {
@@ -84,17 +83,14 @@ var permissionDialog = {
   requestQueue: [],
   hiddenTabId: null, // Track which tab was hidden
 
+  /**
+   * Initialize the permission dialog module.
+   * Caches DOM elements, binds event handlers, and sets up IPC listeners.
+   */
   initialize: function () {
-    console.log("[PermissionDialog] Initializing...");
     permissionDialog.cacheDOM();
-    console.log(
-      "[PermissionDialog] DOM cached, modalContainer:",
-      permissionDialog.modalContainer
-    );
     permissionDialog.bindEvents();
-    console.log("[PermissionDialog] Events bound");
     permissionDialog.setupIPC();
-    console.log("[PermissionDialog] Initialization complete");
   },
 
   cacheDOM: function () {
@@ -147,15 +143,11 @@ var permissionDialog = {
     });
   },
 
+  /**
+   * Set up IPC listener for permission dialog requests from main process.
+   */
   setupIPC: function () {
-    console.log(
-      "[PermissionDialog] Setting up IPC listener for showPermissionDialog"
-    );
     ipc.on("showPermissionDialog", function (event, request) {
-      console.log(
-        "[PermissionDialog] Received showPermissionDialog IPC:",
-        request
-      );
       permissionDialog.queueRequest(request);
     });
   },
@@ -168,20 +160,28 @@ var permissionDialog = {
     permissionDialog.showModal(request);
   },
 
+  /**
+   * Display the permission modal for a given request.
+   * Hides the current webview so the modal is visible above native content.
+   * @param {Object} request - Permission request object
+   * @param {string} request.site - Site hostname requesting permission
+   * @param {string} request.permissionType - Type of permission requested
+   * @param {string} request.title - Title for the modal
+   * @param {string} request.description - Description for the modal
+   */
   showModal: function (request) {
-    console.log("[PermissionDialog] showModal called with:", request);
     permissionDialog.currentRequest = request;
     permissionDialog.isVisible = true;
 
     // Hide the current webview so the modal is visible
     // WebContentsView renders above HTML, so we need to hide it
-    permissionDialog.hiddenTabId = tabState.tabs.getSelected();
-    console.log(
-      "[PermissionDialog] Hidden tab ID:",
-      permissionDialog.hiddenTabId
-    );
+    // Use global tabs (set on window.tabs during initialization)
+    var selectedTabId =
+      typeof tabs !== "undefined" && tabs.getSelected
+        ? tabs.getSelected()
+        : null;
+    permissionDialog.hiddenTabId = selectedTabId;
     if (permissionDialog.hiddenTabId) {
-      console.log("[PermissionDialog] Sending hideCurrentView IPC");
       ipc.send("hideCurrentView");
     }
 
@@ -205,17 +205,6 @@ var permissionDialog = {
 
     // Show modal
     permissionDialog.modalContainer.hidden = false;
-    console.log(
-      "[PermissionDialog] Modal container hidden attribute set to false"
-    );
-    console.log(
-      "[PermissionDialog] Modal container:",
-      permissionDialog.modalContainer
-    );
-    console.log(
-      "[PermissionDialog] Modal visible in DOM:",
-      !permissionDialog.modalContainer.hidden
-    );
 
     // Focus primary button
     setTimeout(function () {
@@ -223,6 +212,10 @@ var permissionDialog = {
     }, 100);
   },
 
+  /**
+   * Hide the permission modal and restore the webview.
+   * Processes the next request in queue if any.
+   */
   hideModal: function () {
     permissionDialog.modalContainer.hidden = true;
     permissionDialog.isVisible = false;
@@ -244,6 +237,10 @@ var permissionDialog = {
     }
   },
 
+  /**
+   * Handle user clicking the "Allow" button.
+   * Sends granted response to main process and optionally persists the decision.
+   */
   handleAllow: function () {
     if (!permissionDialog.currentRequest) return;
 
@@ -270,6 +267,10 @@ var permissionDialog = {
     permissionDialog.hideModal();
   },
 
+  /**
+   * Handle user clicking the "Deny" button or pressing Escape.
+   * Sends denied response to main process and optionally persists the decision.
+   */
   handleDeny: function () {
     if (!permissionDialog.currentRequest) return;
 

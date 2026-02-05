@@ -233,12 +233,6 @@ var permissionManager = {
    */
   requestPermissionFromUser: function (site, permissionType, webContents) {
     return new Promise(function (resolve) {
-      console.log(
-        "[PermissionManager] Requesting permission from user:",
-        site,
-        permissionType
-      );
-
       var description =
         permissionManager.getPermissionDescription(permissionType);
       var permissionRequest = {
@@ -250,17 +244,9 @@ var permissionManager = {
       };
 
       // Use the injected function to find the window that owns this view's webContents
-      var hasFunction = !!permissionManager._getWindowFromViewContents;
-      console.log(
-        "[PermissionManager] _getWindowFromViewContents available:",
-        hasFunction
-      );
-
-      var win = hasFunction
+      var win = permissionManager._getWindowFromViewContents
         ? permissionManager._getWindowFromViewContents(webContents)
         : null;
-
-      console.log("[PermissionManager] Window found:", !!win);
 
       if (!win) {
         console.warn(
@@ -270,9 +256,6 @@ var permissionManager = {
         return;
       }
 
-      console.log(
-        "[PermissionManager] Sending showPermissionDialog IPC to window"
-      );
       sendIPCToWindow(win, "showPermissionDialog", permissionRequest);
 
       // Listen for response
@@ -281,10 +264,6 @@ var permissionManager = {
           response.site === site &&
           response.permissionType === permissionType
         ) {
-          console.log(
-            "[PermissionManager] Got response from dialog:",
-            response.granted
-          );
           ipc.removeListener("permissionDialogResponse", responseHandler);
           resolve(response.granted);
         }
@@ -295,7 +274,6 @@ var permissionManager = {
       // Timeout after 5 minutes (user might ignore dialog)
       setTimeout(function () {
         ipc.removeListener("permissionDialogResponse", responseHandler);
-        console.log("[PermissionManager] Dialog timed out after 5 minutes");
         resolve(false);
       }, 300000);
     });
@@ -314,13 +292,6 @@ var permissionManager = {
     callback,
     details
   ) {
-    console.log(
-      "[PermissionManager] Permission request:",
-      permission,
-      "from",
-      details.requestingUrl
-    );
-
     // Always allow fullscreen
     if (permission === "fullscreen") {
       callback(true);
@@ -335,13 +306,11 @@ var permissionManager = {
 
     // Only handle main frame requests for simplicity
     if (!details.isMainFrame) {
-      console.log("[PermissionManager] Denying: not main frame");
       callback(false);
       return;
     }
 
     if (!details.requestingUrl) {
-      console.log("[PermissionManager] Denying: no requestingUrl");
       callback(false);
       return;
     }
@@ -364,39 +333,32 @@ var permissionManager = {
       permission,
       details
     );
-    console.log("[PermissionManager] Mapped to internal type:", permissionType);
 
     if (
       !permissionType ||
       !permissionManager.isSupportedPermission(permissionType)
     ) {
-      console.log("[PermissionManager] Denying: unsupported permission type");
       callback(false);
       return;
     }
 
     // Check stored permission
     var storedDecision = permissionManager.getPermission(site, permissionType);
-    console.log("[PermissionManager] Stored decision:", storedDecision);
 
     if (storedDecision === "granted") {
-      console.log("[PermissionManager] Auto-granting from stored decision");
       callback(true);
       return;
     }
 
     if (storedDecision === "denied") {
-      console.log("[PermissionManager] Auto-denying from stored decision");
       callback(false);
       return;
     }
 
     // No stored decision, show dialog
-    console.log("[PermissionManager] No stored decision, showing dialog...");
     permissionManager
       .requestPermissionFromUser(site, permissionType, webContents)
       .then(function (granted) {
-        console.log("[PermissionManager] User decision:", granted);
         callback(granted);
       })
       .catch(function (e) {
@@ -469,12 +431,9 @@ var permissionManager = {
    * @param {Function} deps.getWindowFromViewContents - Function to get window from view webContents
    */
   initialize: function (deps) {
-    console.log("[PermissionManager] Initializing...");
-
     if (deps && deps.getWindowFromViewContents) {
       permissionManager._getWindowFromViewContents =
         deps.getWindowFromViewContents;
-      console.log("[PermissionManager] getWindowFromViewContents injected");
     } else {
       console.warn(
         "[PermissionManager] WARNING: getWindowFromViewContents not provided!"
@@ -512,8 +471,6 @@ var permissionManager = {
     ipc.on("permission:getAll", function (e) {
       e.returnValue = permissionManager.getAllPermissions();
     });
-
-    console.log("[PermissionManager] Initialization complete");
   },
 
   /**
