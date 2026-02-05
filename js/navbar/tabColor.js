@@ -216,7 +216,11 @@ const tabColor = {
   initialize: function () {
     webviews.bindEvent("page-favicon-updated", function (tabId, favicons) {
       tabColor.updateFromImage(favicons, tabId, function () {
-        if (tabId === tabs.getSelected()) {
+        if (
+          typeof tabs !== "undefined" &&
+          tabs &&
+          tabId === tabs.getSelected()
+        ) {
           tabColor.updateColors();
         }
       });
@@ -224,7 +228,7 @@ const tabColor = {
 
     webviews.bindEvent("did-change-theme-color", function (tabId, color) {
       tabColor.updateFromThemeColor(color, tabId);
-      if (tabId === tabs.getSelected()) {
+      if (typeof tabs !== "undefined" && tabs && tabId === tabs.getSelected()) {
         tabColor.updateColors();
       }
     });
@@ -244,7 +248,7 @@ const tabColor = {
         frameProcessId,
         frameRoutingId
       ) {
-        if (isMainFrame) {
+        if (isMainFrame && typeof tabs !== "undefined" && tabs) {
           tabs.update(tabId, {
             backgroundColor: null,
             favicon: null,
@@ -275,12 +279,18 @@ const tabColor = {
     // Listen for custom navbar color changes
     settings.listen("navbarColor", function (value) {
       customNavbarColor = value || null;
-      tabColor.updateColors();
+      // Only update if tabs system is ready
+      if (typeof tabs !== "undefined" && tabs && tabs.getSelected) {
+        tabColor.updateColors();
+      }
     });
 
     settings.listen("navbarOpacity", function (value) {
       customNavbarOpacity = value !== undefined ? value : 100;
-      tabColor.updateColors();
+      // Only update if tabs system is ready
+      if (typeof tabs !== "undefined" && tabs && tabs.getSelected) {
+        tabColor.updateColors();
+      }
     });
 
     // Load initial navbar color settings
@@ -293,6 +303,11 @@ const tabColor = {
     tasks.on("tab-selected", this.updateColors);
   },
   updateFromThemeColor: function (color, tabId) {
+    // Guard: don't run if tabs system isn't ready
+    if (typeof tabs === "undefined" || !tabs) {
+      return;
+    }
+
     if (!color) {
       tabs.update(tabId, {
         themeColor: null,
@@ -312,8 +327,18 @@ const tabColor = {
     });
   },
   updateFromImage: function (favicons, tabId, callback) {
+    // Guard: don't run if tabs system isn't ready
+    if (typeof tabs === "undefined" || !tabs) {
+      return;
+    }
+
+    const tab = tabs.get(tabId);
+    if (!tab) {
+      return;
+    }
+
     // private tabs always use a special color, we don't need to get the icon
-    if (tabs.get(tabId).private === true) {
+    if (tab.private === true) {
       return;
     }
 
@@ -347,7 +372,24 @@ const tabColor = {
     );
   },
   updateColors: function () {
-    const tab = tabs.get(tabs.getSelected());
+    // Guard: don't run if tabs system isn't initialized yet
+    if (typeof tabs === "undefined" || !tabs) {
+      return;
+    }
+
+    const selectedId = tabs.getSelected();
+    if (!selectedId) {
+      // No tab selected yet, apply default colors
+      if (window.isDarkMode) {
+        return setColor(defaultColors.darkMode[0], defaultColors.darkMode[1]);
+      }
+      return setColor(defaultColors.lightMode[0], defaultColors.lightMode[1]);
+    }
+
+    const tab = tabs.get(selectedId);
+    if (!tab) {
+      return;
+    }
 
     // private tabs have their own color scheme - never use custom color
     if (tab.private) {
