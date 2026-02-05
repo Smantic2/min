@@ -15,6 +15,15 @@ window.fs = require("fs");
 window.EventEmitter = require("events");
 window.ipc = electron.ipcRenderer;
 
+// Debug: Log webContents info
+console.log("[default.js] Renderer started, windowId:", window.windowId);
+console.log("[default.js] Testing IPC listener registration...");
+
+// Test listener to see if ANY IPC works
+window.ipc.on("showPermissionDialog", function (event, data) {
+  console.log("[default.js] CAUGHT showPermissionDialog directly:", data);
+});
+
 if (navigator.platform === "MacIntel") {
   document.body.classList.add("mac");
   window.platformType = "mac";

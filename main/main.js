@@ -597,6 +597,12 @@ ipc.on("places-connect", function (e) {
 });
 
 function getWindowWebContents(win) {
+  var children = win.getContentView().children;
+  console.log("[getWindowWebContents] children count:", children.length);
+  console.log(
+    "[getWindowWebContents] children[0] webContents id:",
+    children[0] ? children[0].webContents.id : "null"
+  );
   return win.getContentView().children[0].webContents;
 }
 
