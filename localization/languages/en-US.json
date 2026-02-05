@@ -131,7 +131,7 @@
     "sessionRestoreErrorExplanation": "Your saved tabs couldn't be restored correctly.",
     "sessionRestoreErrorBackupInfo": "We've saved a backup of your data at this location: %l.", //%l will be replaced with a path to a file
     "sessionRestoreErrorLinkInfo": {
-    "unsafeHTML": "If this error continues to occur, please open a new issue <a href=\"https://github.com/minbrowser/min\" target=\"_blank\">here</a>."
+      "unsafeHTML": "If this error continues to occur, please open a new issue <a href=\"https://github.com/minbrowser/min\" target=\"_blank\">here</a>."
     },
     /* pages/settings/index.html */
     "settingsPreferencesHeading": "Preferences",
@@ -314,6 +314,36 @@
     "secretKey": "Secret key",
     "openExternalApp": "Open in \\\"%s\\\"?", // %s is the name of an app
     "clickToCopy": "Click to copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "permissionAllow": "Allow",
+    "permissionDeny": "Don't Allow",
+    "permissionRemember": "Remember my decision for this site",
+    "permissionClipboardReadTitle": "Access Clipboard",
+    "permissionClipboardReadDescription": "wants to read text from your clipboard",
+    "permissionClipboardWriteTitle": "Modify Clipboard",
+    "permissionClipboardWriteDescription": "wants to write text to your clipboard",
+    "permissionGeolocationTitle": "Access Location",
+    "permissionGeolocationDescription": "wants to access your location",
+    "permissionNotificationsTitle": "Show Notifications",
+    "permissionNotificationsDescription": "wants to show notifications",
+    "permissionCameraTitle": "Access Camera",
+    "permissionCameraDescription": "wants to access your camera",
+    "permissionMicrophoneTitle": "Access Microphone",
+    "permissionMicrophoneDescription": "wants to access your microphone",
+    "permissionMediaTitle": "Access Camera and Microphone",
+    "permissionMediaDescription": "wants to access your camera and/or microphone",
+    "permissionPointerLockTitle": "Lock Pointer",
+    "permissionPointerLockDescription": "wants to lock your mouse pointer",
+    "permissionDefaultTitle": "Request Permission",
+    "permissionDefaultDescription": "wants to access a device feature",
+    "settingsSitePermissionsHeading": "Site Permissions",
+    "settingsSitePermissionsDescription": "Manage permissions you've granted to websites",
+    "settingsSitePermissionsEmpty": "No site permissions stored. Permissions will appear here when you grant or deny access to websites.",
+    "settingsSitePermissionsSearch": "Search sites...",
+    "settingsSitePermissionsClearAll": "Clear all permissions",
+    "settingsSitePermissionsRemove": "Remove",
+    "settingsSitePermissionsRemoveAll": "Remove all for this site",
+    "settingsSitePermissionsGranted": "Granted",
+    "settingsSitePermissionsDenied": "Denied"
   }
 }

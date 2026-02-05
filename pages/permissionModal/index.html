@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Permission Request</title>
+    <link rel="stylesheet" href="pagebase.css" />
+    <link rel="stylesheet" href="permissionModal.css" />
+  </head>
+  <body>
+    <div id="permission-backdrop" class="permission-backdrop">
+      <div id="permission-modal" class="permission-modal">
+        <div class="permission-icon-container">
+          <div id="permission-icon" class="permission-icon"></div>
+        </div>
+        <div class="permission-content">
+          <h2 id="permission-title" class="permission-title"></h2>
+          <p id="permission-description" class="permission-description"></p>
+          <p id="permission-site" class="permission-site"></p>
+        </div>
+        <div class="permission-remember">
+          <label class="permission-checkbox-label">
+            <input type="checkbox" id="permission-remember" checked />
+            <span id="permission-remember-text"
+              >Remember my decision for this site</span
+            >
+          </label>
+        </div>
+        <div class="permission-actions">
+          <button
+            id="permission-deny"
+            class="permission-btn permission-btn-secondary"
+          >
+            Don't Allow
+          </button>
+          <button
+            id="permission-allow"
+            class="permission-btn permission-btn-primary"
+          >
+            Allow
+          </button>
+        </div>
+      </div>
+    </div>
+    <script src="permissionModal.js"></script>
+  </body>
+</html>
