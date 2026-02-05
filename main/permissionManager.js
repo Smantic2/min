@@ -442,11 +442,19 @@ var permissionManager = {
 
     // Register IPC handlers
     ipc.on("permission:set", function (e, data) {
+      console.log(
+        "[PermissionManager] permission:set called with:",
+        JSON.stringify(data)
+      );
       permissionManager.setPermission(
         data.site,
         data.permissionType,
         data.decision,
         data.remember
+      );
+      console.log(
+        "[PermissionManager] After set, all permissions:",
+        JSON.stringify(permissionManager.getAllPermissions())
       );
     });
 
@@ -469,7 +477,12 @@ var permissionManager = {
     });
 
     ipc.on("permission:getAll", function (e) {
-      e.returnValue = permissionManager.getAllPermissions();
+      var allPerms = permissionManager.getAllPermissions();
+      console.log(
+        "[PermissionManager] permission:getAll called, returning:",
+        JSON.stringify(allPerms)
+      );
+      e.returnValue = allPerms;
     });
   },
 
