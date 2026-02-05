@@ -1,12 +1,16 @@
 /**
  * Permission Dialog - Handles permission request modals
  * Apple-style modal for web permission requests
+ *
+ * NOTE: WebContentsView (tabs) render above HTML content, so we need to
+ * hide the current view while the modal is shown to make it visible.
  */
 
-const { ipcRenderer } = require("electron");
+var webviews = require("webviews.js");
+var tabState = require("tabState.js");
 
 // Permission icon SVGs (using inline SVG for minimal dependencies)
-const permissionIcons = {
+var permissionIcons = {
   "clipboard-read":
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
   "clipboard-write":
@@ -27,8 +31,8 @@ const permissionIcons = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
 };
 
-// Permission descriptions
-const permissionDescriptions = {
+// Permission descriptions - use localized strings
+var permissionDescriptions = {
   "clipboard-read": {
     title: l("permissionClipboardReadTitle"),
     description: l("permissionClipboardReadDescription"),
@@ -63,7 +67,7 @@ const permissionDescriptions = {
   },
 };
 
-const permissionDialog = {
+var permissionDialog = {
   modalContainer: null,
   modalOverlay: null,
   modalContent: null,
@@ -78,11 +82,19 @@ const permissionDialog = {
   currentRequest: null,
   isVisible: false,
   requestQueue: [],
+  hiddenTabId: null, // Track which tab was hidden
 
   initialize: function () {
+    console.log("[PermissionDialog] Initializing...");
     permissionDialog.cacheDOM();
+    console.log(
+      "[PermissionDialog] DOM cached, modalContainer:",
+      permissionDialog.modalContainer
+    );
     permissionDialog.bindEvents();
+    console.log("[PermissionDialog] Events bound");
     permissionDialog.setupIPC();
+    console.log("[PermissionDialog] Initialization complete");
   },
 
   cacheDOM: function () {
@@ -136,7 +148,14 @@ const permissionDialog = {
   },
 
   setupIPC: function () {
-    ipcRenderer.on("showPermissionDialog", function (event, request) {
+    console.log(
+      "[PermissionDialog] Setting up IPC listener for showPermissionDialog"
+    );
+    ipc.on("showPermissionDialog", function (event, request) {
+      console.log(
+        "[PermissionDialog] Received showPermissionDialog IPC:",
+        request
+      );
       permissionDialog.queueRequest(request);
     });
   },
@@ -150,16 +169,29 @@ const permissionDialog = {
   },
 
   showModal: function (request) {
+    console.log("[PermissionDialog] showModal called with:", request);
     permissionDialog.currentRequest = request;
     permissionDialog.isVisible = true;
 
+    // Hide the current webview so the modal is visible
+    // WebContentsView renders above HTML, so we need to hide it
+    permissionDialog.hiddenTabId = tabState.tabs.getSelected();
+    console.log(
+      "[PermissionDialog] Hidden tab ID:",
+      permissionDialog.hiddenTabId
+    );
+    if (permissionDialog.hiddenTabId) {
+      console.log("[PermissionDialog] Sending hideCurrentView IPC");
+      ipc.send("hideCurrentView");
+    }
+
     // Set icon
-    const iconSvg =
+    var iconSvg =
       permissionIcons[request.permissionType] || permissionIcons.default;
     permissionDialog.iconEl.innerHTML = iconSvg;
 
     // Set text content
-    const desc = permissionDescriptions[request.permissionType] || {
+    var desc = permissionDescriptions[request.permissionType] || {
       title: request.title || l("permissionDefaultTitle"),
       description: request.description || l("permissionDefaultDescription"),
     };
@@ -173,6 +205,17 @@ const permissionDialog = {
 
     // Show modal
     permissionDialog.modalContainer.hidden = false;
+    console.log(
+      "[PermissionDialog] Modal container hidden attribute set to false"
+    );
+    console.log(
+      "[PermissionDialog] Modal container:",
+      permissionDialog.modalContainer
+    );
+    console.log(
+      "[PermissionDialog] Modal visible in DOM:",
+      !permissionDialog.modalContainer.hidden
+    );
 
     // Focus primary button
     setTimeout(function () {
@@ -183,11 +226,18 @@ const permissionDialog = {
   hideModal: function () {
     permissionDialog.modalContainer.hidden = true;
     permissionDialog.isVisible = false;
+
+    // Restore the webview that was hidden
+    if (permissionDialog.hiddenTabId) {
+      webviews.setSelected(permissionDialog.hiddenTabId, { focus: false });
+      permissionDialog.hiddenTabId = null;
+    }
+
     permissionDialog.currentRequest = null;
 
     // Process next request in queue
     if (permissionDialog.requestQueue.length > 0) {
-      const nextRequest = permissionDialog.requestQueue.shift();
+      var nextRequest = permissionDialog.requestQueue.shift();
       setTimeout(function () {
         permissionDialog.showModal(nextRequest);
       }, 300);
@@ -197,10 +247,10 @@ const permissionDialog = {
   handleAllow: function () {
     if (!permissionDialog.currentRequest) return;
 
-    const remember = permissionDialog.rememberCheckbox.checked;
+    var remember = permissionDialog.rememberCheckbox.checked;
 
     // Send response to main process
-    ipcRenderer.send("permissionDialogResponse", {
+    ipc.send("permissionDialogResponse", {
       site: permissionDialog.currentRequest.site,
       permissionType: permissionDialog.currentRequest.permissionType,
       granted: true,
@@ -209,7 +259,7 @@ const permissionDialog = {
 
     // Save permission if remember is checked
     if (remember) {
-      ipcRenderer.send("permission:set", {
+      ipc.send("permission:set", {
         site: permissionDialog.currentRequest.site,
         permissionType: permissionDialog.currentRequest.permissionType,
         decision: "granted",
@@ -223,10 +273,10 @@ const permissionDialog = {
   handleDeny: function () {
     if (!permissionDialog.currentRequest) return;
 
-    const remember = permissionDialog.rememberCheckbox.checked;
+    var remember = permissionDialog.rememberCheckbox.checked;
 
     // Send response to main process
-    ipcRenderer.send("permissionDialogResponse", {
+    ipc.send("permissionDialogResponse", {
       site: permissionDialog.currentRequest.site,
       permissionType: permissionDialog.currentRequest.permissionType,
       granted: false,
@@ -235,7 +285,7 @@ const permissionDialog = {
 
     // Save permission if remember is checked
     if (remember) {
-      ipcRenderer.send("permission:set", {
+      ipc.send("permission:set", {
         site: permissionDialog.currentRequest.site,
         permissionType: permissionDialog.currentRequest.permissionType,
         decision: "denied",
