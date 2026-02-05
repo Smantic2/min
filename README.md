@@ -1,4 +1,4 @@
-# Min
+# Min FORK (personal browser based on Min, feel free to use on personal use)
 
 Min is a fast, minimal browser that protects your privacy. It includes an interface designed to minimize distractions, and features such as:
 
