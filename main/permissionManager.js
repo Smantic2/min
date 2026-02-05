@@ -232,16 +232,6 @@ var permissionManager = {
    * @returns {Promise<boolean>} - User decision
    */
   requestPermissionFromUser: function (site, permissionType, webContents) {
-    console.log(
-      "[DEBUG][RequestFromUser] ========== REQUESTING FROM USER =========="
-    );
-    console.log("[DEBUG][RequestFromUser] site:", site);
-    console.log("[DEBUG][RequestFromUser] permissionType:", permissionType);
-    console.log(
-      "[DEBUG][RequestFromUser] webContents.id:",
-      webContents ? webContents.id : "null"
-    );
-
     return new Promise(function (resolve) {
       var description =
         permissionManager.getPermissionDescription(permissionType);
@@ -253,26 +243,10 @@ var permissionManager = {
         webContentsId: webContents.id,
       };
 
-      console.log(
-        "[DEBUG][RequestFromUser] Built permissionRequest:",
-        JSON.stringify(permissionRequest, null, 2)
-      );
-
       // Use the injected function to find the window that owns this view's webContents
-      var hasFunction = !!permissionManager._getWindowFromViewContents;
-      console.log(
-        "[DEBUG][RequestFromUser] _getWindowFromViewContents available:",
-        hasFunction
-      );
-
       var win = permissionManager._getWindowFromViewContents
         ? permissionManager._getWindowFromViewContents(webContents)
         : null;
-
-      console.log("[DEBUG][RequestFromUser] Found window:", !!win);
-      if (win) {
-        console.log("[DEBUG][RequestFromUser] Window id:", win.id);
-      }
 
       if (!win) {
         console.warn(
@@ -282,65 +256,23 @@ var permissionManager = {
         return;
       }
 
-      console.log(
-        "[DEBUG][RequestFromUser] Sending IPC 'showPermissionDialog' to window..."
-      );
       sendIPCToWindow(win, "showPermissionDialog", permissionRequest);
-      console.log("[DEBUG][RequestFromUser] IPC sent successfully");
 
       // Listen for response
       var responseHandler = function (e, response) {
-        console.log(
-          "[DEBUG][ResponseHandler] ========== GOT IPC RESPONSE =========="
-        );
-        console.log(
-          "[DEBUG][ResponseHandler] Received response:",
-          JSON.stringify(response, null, 2)
-        );
-        console.log("[DEBUG][ResponseHandler] Expected site:", site);
-        console.log(
-          "[DEBUG][ResponseHandler] Expected permissionType:",
-          permissionType
-        );
-        console.log(
-          "[DEBUG][ResponseHandler] Match site:",
-          response.site === site
-        );
-        console.log(
-          "[DEBUG][ResponseHandler] Match permissionType:",
-          response.permissionType === permissionType
-        );
-
         if (
           response.site === site &&
           response.permissionType === permissionType
         ) {
-          console.log(
-            "[DEBUG][ResponseHandler] ✓ Response MATCHES! Resolving with granted:",
-            response.granted
-          );
           ipc.removeListener("permissionDialogResponse", responseHandler);
           resolve(response.granted);
-        } else {
-          console.log(
-            "[DEBUG][ResponseHandler] ✗ Response does NOT match, ignoring"
-          );
         }
       };
 
-      console.log(
-        "[DEBUG][RequestFromUser] Registering IPC listener for 'permissionDialogResponse'..."
-      );
       ipc.on("permissionDialogResponse", responseHandler);
-      console.log(
-        "[DEBUG][RequestFromUser] IPC listener registered successfully"
-      );
 
       // Timeout after 5 minutes (user might ignore dialog)
       setTimeout(function () {
-        console.log(
-          "[DEBUG][RequestFromUser] TIMEOUT after 5 minutes, resolving with false"
-        );
         ipc.removeListener("permissionDialogResponse", responseHandler);
         resolve(false);
       }, 300000);
@@ -360,49 +292,25 @@ var permissionManager = {
     callback,
     details
   ) {
-    console.log(
-      "[DEBUG][PermissionHandler] ========== PERMISSION REQUEST =========="
-    );
-    console.log("[DEBUG][PermissionHandler] permission:", permission);
-    console.log(
-      "[DEBUG][PermissionHandler] details:",
-      JSON.stringify(details, null, 2)
-    );
-    console.log(
-      "[DEBUG][PermissionHandler] webContents.id:",
-      webContents ? webContents.id : "null"
-    );
-    console.log("[DEBUG][PermissionHandler] callback type:", typeof callback);
-
     // Always allow fullscreen
     if (permission === "fullscreen") {
-      console.log("[DEBUG][PermissionHandler] → Auto-allowing fullscreen");
       callback(true);
       return;
     }
 
     // Always allow sanitized clipboard write
     if (permission === "clipboard-sanitized-write") {
-      console.log(
-        "[DEBUG][PermissionHandler] → Auto-allowing clipboard-sanitized-write"
-      );
       callback(true);
       return;
     }
 
     // Only handle main frame requests for simplicity
     if (!details.isMainFrame) {
-      console.log(
-        "[DEBUG][PermissionHandler] → DENIED: not main frame (isMainFrame:",
-        details.isMainFrame,
-        ")"
-      );
       callback(false);
       return;
     }
 
     if (!details.requestingUrl) {
-      console.log("[DEBUG][PermissionHandler] → DENIED: no requestingUrl");
       callback(false);
       return;
     }
@@ -411,7 +319,6 @@ var permissionManager = {
     var site;
     try {
       site = new URL(details.requestingUrl).hostname;
-      console.log("[DEBUG][PermissionHandler] Parsed site:", site);
     } catch (e) {
       console.warn(
         "[PermissionManager] Invalid URL in permission request:",
@@ -426,61 +333,33 @@ var permissionManager = {
       permission,
       details
     );
-    console.log(
-      "[DEBUG][PermissionHandler] Mapped permissionType:",
-      permissionType
-    );
 
     if (
       !permissionType ||
       !permissionManager.isSupportedPermission(permissionType)
     ) {
-      console.log(
-        "[DEBUG][PermissionHandler] → DENIED: unsupported permission type"
-      );
       callback(false);
       return;
     }
 
     // Check stored permission
     var storedDecision = permissionManager.getPermission(site, permissionType);
-    console.log("[DEBUG][PermissionHandler] Stored decision:", storedDecision);
 
     if (storedDecision === "granted") {
-      console.log(
-        "[DEBUG][PermissionHandler] → Auto-GRANTED from stored decision"
-      );
       callback(true);
       return;
     }
 
     if (storedDecision === "denied") {
-      console.log(
-        "[DEBUG][PermissionHandler] → Auto-DENIED from stored decision"
-      );
       callback(false);
       return;
     }
 
     // No stored decision, show dialog
-    console.log(
-      "[DEBUG][PermissionHandler] → No stored decision, showing dialog..."
-    );
     permissionManager
       .requestPermissionFromUser(site, permissionType, webContents)
       .then(function (granted) {
-        console.log(
-          "[DEBUG][PermissionHandler] Dialog resolved with granted:",
-          granted
-        );
-        console.log(
-          "[DEBUG][PermissionHandler] Calling Electron callback with:",
-          granted
-        );
         callback(granted);
-        console.log(
-          "[DEBUG][PermissionHandler] Electron callback called successfully"
-        );
       })
       .catch(function (e) {
         console.error("[PermissionManager] Error requesting permission:", e);

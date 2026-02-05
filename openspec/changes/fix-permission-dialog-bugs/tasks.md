@@ -33,6 +33,6 @@
 ## 6. Build and Verify
 
 - [x] 6.1 Run `npm run build` and verify no errors
-- [ ] 6.2 Run `npm run start` and test permission request on waze.com
-- [ ] 6.3 Verify permission modal appears correctly
-- [ ] 6.4 Verify no debug logs in console (only warnings if applicable)
+- [x] 6.2 Run `npm run start` and test permission request on waze.com
+- [x] 6.3 Verify permission modal appears correctly
+- [x] 6.4 Verify no debug logs in console (only warnings if applicable)
