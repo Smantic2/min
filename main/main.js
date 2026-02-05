@@ -109,26 +109,50 @@ var saveWindowBounds = function () {
 };
 
 function sendIPCToWindow(window, action, data) {
+  console.log(
+    "[sendIPCToWindow] Called with action:",
+    action,
+    "window:",
+    !!window
+  );
+
   if (window && window.isDestroyed()) {
     console.warn("ignoring message " + action + " sent to destroyed window");
     return;
   }
 
   if (window && getWindowWebContents(window).isLoadingMainFrame()) {
+    console.log("[sendIPCToWindow] Window is loading, waiting...");
     // immediately after a did-finish-load event, isLoading can still be true,
     // so wait a bit to confirm that the page is really loading
     setTimeout(function () {
       if (getWindowWebContents(window).isLoadingMainFrame()) {
+        console.log(
+          "[sendIPCToWindow] Still loading, waiting for did-finish-load"
+        );
         getWindowWebContents(window).once("did-finish-load", function () {
+          console.log(
+            "[sendIPCToWindow] did-finish-load fired, sending:",
+            action
+          );
           getWindowWebContents(window).send(action, data || {});
         });
       } else {
+        console.log("[sendIPCToWindow] Finished loading, sending:", action);
         getWindowWebContents(window).send(action, data || {});
       }
     }, 0);
   } else if (window) {
-    getWindowWebContents(window).send(action, data || {});
+    var wc = getWindowWebContents(window);
+    console.log(
+      "[sendIPCToWindow] Sending immediately:",
+      action,
+      "to webContents id:",
+      wc ? wc.id : "null"
+    );
+    wc.send(action, data || {});
   } else {
+    console.log("[sendIPCToWindow] No window, creating new one");
     var window = createWindow();
     getWindowWebContents(window).once("did-finish-load", function () {
       getWindowWebContents(window).send(action, data || {});
