@@ -242,11 +242,19 @@ var permissionDialog = {
    * Sends granted response to main process and optionally persists the decision.
    */
   handleAllow: function () {
+    console.log("[PermDialog] handleAllow called");
     if (!permissionDialog.currentRequest) {
+      console.log("[PermDialog] No currentRequest, returning");
       return;
     }
 
     var remember = permissionDialog.rememberCheckbox.checked;
+    console.log(
+      "[PermDialog] remember:",
+      remember,
+      "site:",
+      permissionDialog.currentRequest.site
+    );
 
     var response = {
       site: permissionDialog.currentRequest.site,
@@ -256,10 +264,12 @@ var permissionDialog = {
     };
 
     // Send response to main process
+    console.log("[PermDialog] Sending permissionDialogResponse...");
     ipc.send("permissionDialogResponse", response);
 
     // Save permission if remember is checked
     if (remember) {
+      console.log("[PermDialog] Sending permission:set...");
       ipc.send("permission:set", {
         site: permissionDialog.currentRequest.site,
         permissionType: permissionDialog.currentRequest.permissionType,

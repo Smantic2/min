@@ -1,99 +1,66 @@
-var settings = require('util/settings/settings.js')
+var settings = require("util/settings/settings.js");
 
-function initialize () {
-  if (settings.get('useSeparateTitlebar') === true) {
-    document.body.classList.add('separate-titlebar')
+function initialize() {
+  if (settings.get("useSeparateTitlebar") === true) {
+    document.body.classList.add("separate-titlebar");
   }
 
-  var windowIsMaximized = false
-  var windowIsFullscreen = false
+  var windowIsMaximized = false;
+  var windowIsFullscreen = false;
 
-  var captionMinimize =
-  document.querySelector('.windows-caption-buttons .caption-minimise, body.linux .titlebar-linux .caption-minimise')
+  // Traffic light buttons (unified for all platforms)
+  var trafficClose = document.getElementById("traffic-close");
+  var trafficMinimize = document.getElementById("traffic-minimize");
+  var trafficMaximize = document.getElementById("traffic-maximize");
 
-  var captionMaximize =
-  document.querySelector('.windows-caption-buttons .caption-maximize, body.linux .titlebar-linux .caption-maximize')
-
-  var captionRestore =
-  document.querySelector('.windows-caption-buttons .caption-restore, body.linux .titlebar-linux .caption-restore')
-
-  var captionClose =
-  document.querySelector('.windows-caption-buttons .caption-close, body.linux .titlebar-linux .caption-close')
-
-  var linuxClose = document.querySelector('#linux-control-buttons #close-button')
-  var linuxMinimize = document.querySelector('#linux-control-buttons #minimize-button')
-  var linuxMaximize = document.querySelector('#linux-control-buttons #maximize-button')
-
-  function updateCaptionButtons () {
-    if (window.platformType === 'windows') {
-      if (windowIsMaximized || windowIsFullscreen) {
-        captionMaximize.hidden = true
-        captionRestore.hidden = false
-      } else {
-        captionMaximize.hidden = false
-        captionRestore.hidden = true
-      }
-    }
+  // Bind click handlers for traffic light buttons
+  if (trafficClose) {
+    trafficClose.addEventListener("click", function (e) {
+      e.stopPropagation();
+      ipc.invoke("close");
+    });
   }
 
-  if (window.platformType === 'windows') {
-    updateCaptionButtons()
+  if (trafficMinimize) {
+    trafficMinimize.addEventListener("click", function (e) {
+      e.stopPropagation();
+      ipc.invoke("minimize");
+    });
+  }
 
-    captionMinimize.addEventListener('click', function (e) {
-      ipc.invoke('minimize')
-    })
-
-    captionMaximize.addEventListener('click', function (e) {
-      ipc.invoke('maximize')
-    })
-
-    captionRestore.addEventListener('click', function (e) {
+  if (trafficMaximize) {
+    trafficMaximize.addEventListener("click", function (e) {
+      e.stopPropagation();
       if (windowIsFullscreen) {
-        ipc.invoke('setFullScreen', false)
-      } else {
-        ipc.invoke('unmaximize')
-      }
-    })
-
-    captionClose.addEventListener('click', function (e) {
-      ipc.invoke('close')
-    })
-  }
-
-  ipc.on('maximize', function (e) {
-    windowIsMaximized = true
-    updateCaptionButtons()
-  })
-  ipc.on('unmaximize', function (e) {
-    windowIsMaximized = false
-    updateCaptionButtons()
-  })
-  ipc.on('enter-full-screen', function (e) {
-    windowIsFullscreen = true
-    updateCaptionButtons()
-  })
-  ipc.on('leave-full-screen', function (e) {
-    windowIsFullscreen = false
-    updateCaptionButtons()
-  })
-
-  if (window.platformType === 'linux') {
-    linuxClose.addEventListener('click', function (e) {
-      ipc.invoke('close')
-    })
-    linuxMaximize.addEventListener('click', function (e) {
-      if (windowIsFullscreen) {
-        ipc.invoke('setFullScreen', false)
+        ipc.invoke("setFullScreen", false);
       } else if (windowIsMaximized) {
-        ipc.invoke('unmaximize')
+        ipc.invoke("unmaximize");
       } else {
-        ipc.invoke('maximize')
+        ipc.invoke("maximize");
       }
-    })
-    linuxMinimize.addEventListener('click', function (e) {
-      ipc.invoke('minimize')
-    })
+    });
   }
+
+  // Listen for window state changes
+  ipc.on("maximize", function (e) {
+    windowIsMaximized = true;
+    document.body.classList.add("maximized");
+  });
+
+  ipc.on("unmaximize", function (e) {
+    windowIsMaximized = false;
+    document.body.classList.remove("maximized");
+  });
+
+  ipc.on("enter-full-screen", function (e) {
+    windowIsFullscreen = true;
+    document.body.classList.add("fullscreen");
+  });
+
+  ipc.on("leave-full-screen", function (e) {
+    windowIsFullscreen = false;
+    document.body.classList.remove("fullscreen");
+  });
 }
 
-module.exports = { initialize }
+module.exports = { initialize };

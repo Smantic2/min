@@ -3,6 +3,7 @@ body {
   --control-space-left: 0.3em;
   --control-space-right: 0.3em;
 }
+
 /* window drag regions */
 
 .window-drag-area {
@@ -15,8 +16,10 @@ body.linux:not(.maximized):not(.fullscreen):not(.separate-titlebar) {
 }
 
 /* On Windows, draggable regions aren't clickable, so the drag region is a separate area above the tabstrip */
-body.windows:not(.maximized):not(.fullscreen):not(.separate-titlebar) .window-drag-area,
-body.linux:not(.maximized):not(.fullscreen):not(.separate-titlebar) .window-drag-area {
+body.windows:not(.maximized):not(.fullscreen):not(.separate-titlebar)
+  .window-drag-area,
+body.linux:not(.maximized):not(.fullscreen):not(.separate-titlebar)
+  .window-drag-area {
   display: block;
   position: fixed;
   /* leave an empty space around the edges of the drag area so that the window can be resized */
@@ -37,133 +40,129 @@ body.mac:not(.separate-titlebar):not(.fullscreen) .window-drag-area {
   -webkit-app-region: drag;
 }
 
-body.mac:not(.is-edit-mode):not(.fullscreen):not(.separate-titlebar) #mac-window-drag-area {
+body.mac:not(.is-edit-mode):not(.fullscreen):not(.separate-titlebar)
+  #mac-window-drag-area {
   margin-left: calc(var(--control-space-left) * -1);
   width: calc(var(--control-space-left) + 1.25em);
   height: 100%;
   -webkit-app-region: drag;
 }
 
-/* mac window buttons */
+/* ============================================
+   Traffic Light Buttons (macOS-style, all platforms)
+   ============================================ */
 
-body.mac:not(.fullscreen):not(.separate-titlebar) {
+/* Container positioning - top left of window */
+#traffic-light-buttons {
+  display: none;
+  position: fixed;
+  top: calc(var(--control-space-top) + 10px);
+  left: 12px;
+  z-index: 100;
+  gap: 8px;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+/* Show traffic lights on all platforms when not using separate titlebar */
+body:not(.separate-titlebar):not(.fullscreen) #traffic-light-buttons {
+  display: flex;
+}
+
+/* Reserve space on the left for traffic lights on all platforms */
+body:not(.separate-titlebar):not(.fullscreen) {
   --control-space-left: 75px;
 }
 
-body.rtl.mac:not(.fullscreen):not(.separate-titlebar) {
-  --control-space-left: 0px;
+/* RTL support */
+body.rtl:not(.separate-titlebar):not(.fullscreen) {
+  --control-space-left: 0.3em;
   --control-space-right: 75px;
 }
 
-/* Windows caption buttions */
-
-body.windows:not(.separate-titlebar) {
-  --control-space-right: 138px;
+body.rtl:not(.separate-titlebar):not(.fullscreen) #traffic-light-buttons {
+  left: auto;
+  right: 12px;
 }
 
-.windows-caption-buttons {
-  display: none;
-}
-
-body.windows:not(.separate-titlebar) .windows-caption-buttons {
-  display: flex;
-  position: absolute;
-  top: var(--control-space-top);
-  right: 0;
-  z-index: 10;
-}
-
-.windows-caption-buttons .element {
-  line-height: 36px;
-  width: 36px;
-  stroke: #000;
-  padding: 0 5px;
-  box-sizing: content-box;
-  fill: transparent;
-  text-align: center;
-}
-
-body:not(.task-overlay-is-shown).dark-theme .windows-caption-buttons .element {
-  stroke: #fff;
-}
-
-.windows-caption-buttons .element > svg {
+/* Individual button styling */
+.traffic-light-btn {
   width: 12px;
   height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: filter 0.15s ease;
+  -webkit-app-region: no-drag;
 }
 
-.windows-caption-buttons .element {
-  transition: background-color 0.1s linear, color 0.1s linear;
-}
-.windows-caption-buttons .element:hover {
-  background-color: rgba(196, 196, 196, 0.4);
-  transition: none;
-}
-.windows-caption-buttons .element:active {
-  background-color: rgba(168, 168, 168, 0.5);
-}
-.windows-caption-buttons .element.caption-close:hover {
-  background-color: #e81123;
-}
-.windows-caption-buttons .element.caption-close:hover > svg,
-.windows-caption-buttons .element.caption-close:active > svg {
-  stroke: #fff;
-  stroke-width: 1.1px;
-}
-.windows-caption-buttons .element.caption-close:active {
-  background-color: rgba(232, 17, 35, 0.6);
+/* Button colors */
+#traffic-close {
+  background-color: #ff5f57;
 }
 
-/* Linux buttons */
-
-#linux-control-buttons {
-  display: none;
+#traffic-minimize {
+  background-color: #ffbd2e;
 }
 
-body.linux:not(.separate-titlebar) {
-  --control-space-right: 96px;
+#traffic-maximize {
+  background-color: #28c840;
 }
 
-body.linux:not(.separate-titlebar) #linux-control-buttons {
-  display: block;
-  position: absolute;
-  top: calc(9px + var(--control-space-top));
-  right: 9px;
-  z-index: 9;
-  width: 76px;
+/* Icons inside buttons - hidden by default */
+.traffic-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  color: transparent;
+  transition: color 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-body.task-overlay-is-shown #linux-control-buttons {
-  color: black !important;
+/* Show icons on container hover (macOS behavior) */
+#traffic-light-buttons:hover .traffic-icon {
+  color: rgba(0, 0, 0, 0.5);
 }
 
-body.dark-mode.task-overlay-is-shown #linux-control-buttons {
-  color: white !important;
+/* Hover brightness effect */
+.traffic-light-btn:hover {
+  filter: brightness(1.1);
 }
 
-#linux-control-buttons .button-background {
-  fill: currentColor;
-  stroke: currentColor;
-  fill-opacity: 0;
-  stroke-opacity: 0;
+/* Active/pressed state */
+.traffic-light-btn:active {
+  filter: brightness(0.9);
 }
 
-#linux-control-buttons g:hover .button-background {
-  fill-opacity: 0.02;
-  stroke-opacity: 0.09;
+/* Focus state for accessibility */
+.traffic-light-btn:focus {
+  outline: 2px solid rgba(0, 0, 0, 0.3);
+  outline-offset: 2px;
 }
 
-#linux-control-buttons g:active .button-background {
-  fill-opacity: 0.18;
-  stroke-opacity: 0.24;
+.traffic-light-btn:focus:not(:focus-visible) {
+  outline: none;
 }
 
-.dark-theme #linux-control-buttons g:hover .button-background {
-  fill-opacity: 0.2;
-  stroke-opacity: 0.35;
+/* Subtle shadow for depth */
+.traffic-light-btn {
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
 }
 
-.dark-theme #linux-control-buttons g:active .button-background {
-  fill-opacity: 0.45;
-  stroke-opacity: 0.7;
+/* Inactive/unfocused window state - dim the buttons */
+body.window-inactive #traffic-light-buttons .traffic-light-btn {
+  background-color: #dddddd;
+}
+
+body.window-inactive #traffic-light-buttons .traffic-icon {
+  color: transparent !important;
 }

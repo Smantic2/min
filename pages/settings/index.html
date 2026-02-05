@@ -131,6 +131,85 @@
         ></label>
       </div>
 
+      <!-- Navbar Color Customization -->
+      <div class="setting-section" id="navbar-color-section">
+        <label data-string="settingsNavbarColorLabel">Navbar Color</label>
+
+        <div class="color-presets" id="navbar-color-presets">
+          <button
+            class="color-swatch"
+            data-color="#4A90D9"
+            title="Soft Blue"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#7CB342"
+            title="Sage Green"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#9575CD"
+            title="Lavender"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#E57373"
+            title="Warm Rose"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#4DB6AC"
+            title="Teal"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#FFB74D"
+            title="Warm Orange"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#F06292"
+            title="Pink"
+          ></button>
+          <button
+            class="color-swatch"
+            data-color="#90A4AE"
+            title="Cool Gray"
+          ></button>
+        </div>
+
+        <div class="color-picker-row">
+          <label
+            for="navbar-custom-color"
+            data-string="settingsNavbarCustomColor"
+            >Custom:</label
+          >
+          <input type="color" id="navbar-custom-color" value="#4A90D9" />
+        </div>
+
+        <div class="opacity-slider-row">
+          <label for="navbar-opacity-slider" data-string="settingsNavbarOpacity"
+            >Opacity:</label
+          >
+          <input
+            type="range"
+            id="navbar-opacity-slider"
+            min="0"
+            max="100"
+            value="100"
+          />
+          <span id="navbar-opacity-value">100%</span>
+        </div>
+
+        <button
+          id="navbar-color-reset"
+          class="secondary-button"
+          data-string="settingsNavbarColorReset"
+        >
+          Reset to Default
+        </button>
+      </div>
+
       <div class="setting-section">
         <label
           for="setting-language-picker"

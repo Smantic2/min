@@ -264,6 +264,120 @@ siteThemeCheckbox.addEventListener("change", function (e) {
   settings.set("siteTheme", this.checked);
 });
 
+/* navbar color customization settings */
+
+var navbarColorPresets = document.getElementById("navbar-color-presets");
+var navbarCustomColor = document.getElementById("navbar-custom-color");
+var navbarOpacitySlider = document.getElementById("navbar-opacity-slider");
+var navbarOpacityValue = document.getElementById("navbar-opacity-value");
+var navbarColorReset = document.getElementById("navbar-color-reset");
+
+function updateColorSwatchSelection(selectedColor) {
+  var swatches = navbarColorPresets.querySelectorAll(".color-swatch");
+  swatches.forEach(function (swatch) {
+    var swatchColor = swatch.getAttribute("data-color");
+    if (
+      swatchColor &&
+      swatchColor.toLowerCase() === selectedColor.toLowerCase()
+    ) {
+      swatch.classList.add("selected");
+    } else {
+      swatch.classList.remove("selected");
+    }
+  });
+}
+
+function applyNavbarColorPreview(color, opacity) {
+  // Send message to main browser window to apply color
+  postMessage({
+    message: "navbarColorChanged",
+    color: color,
+    opacity: opacity,
+  });
+}
+
+// Initialize color swatches with their colors
+if (navbarColorPresets) {
+  var swatches = navbarColorPresets.querySelectorAll(".color-swatch");
+  swatches.forEach(function (swatch) {
+    var color = swatch.getAttribute("data-color");
+    if (color) {
+      swatch.style.backgroundColor = color;
+    }
+  });
+}
+
+// Load saved navbar color
+settings.get("navbarColor", function (value) {
+  if (value) {
+    navbarCustomColor.value = value;
+    updateColorSwatchSelection(value);
+  }
+});
+
+// Load saved navbar opacity
+settings.get("navbarOpacity", function (value) {
+  var opacity = value !== undefined ? value : 100;
+  navbarOpacitySlider.value = opacity;
+  navbarOpacityValue.textContent = opacity + "%";
+});
+
+// Preset swatch click handlers
+if (navbarColorPresets) {
+  navbarColorPresets.addEventListener("click", function (e) {
+    var swatch = e.target.closest(".color-swatch");
+    if (swatch) {
+      var color = swatch.getAttribute("data-color");
+      if (color) {
+        settings.set("navbarColor", color);
+        navbarCustomColor.value = color;
+        updateColorSwatchSelection(color);
+
+        settings.get("navbarOpacity", function (opacity) {
+          applyNavbarColorPreview(color, opacity !== undefined ? opacity : 100);
+        });
+      }
+    }
+  });
+}
+
+// Custom color picker change handler
+navbarCustomColor.addEventListener("input", function (e) {
+  var color = this.value;
+  settings.set("navbarColor", color);
+  updateColorSwatchSelection(color);
+
+  settings.get("navbarOpacity", function (opacity) {
+    applyNavbarColorPreview(color, opacity !== undefined ? opacity : 100);
+  });
+});
+
+// Opacity slider change handler with live preview
+navbarOpacitySlider.addEventListener("input", function (e) {
+  var opacity = parseInt(this.value);
+  navbarOpacityValue.textContent = opacity + "%";
+  settings.set("navbarOpacity", opacity);
+
+  settings.get("navbarColor", function (color) {
+    if (color) {
+      applyNavbarColorPreview(color, opacity);
+    }
+  });
+});
+
+// Reset button handler
+navbarColorReset.addEventListener("click", function (e) {
+  settings.set("navbarColor", null);
+  settings.set("navbarOpacity", 100);
+
+  navbarCustomColor.value = "#4A90D9";
+  navbarOpacitySlider.value = 100;
+  navbarOpacityValue.textContent = "100%";
+  updateColorSwatchSelection("");
+
+  applyNavbarColorPreview(null, 100);
+});
+
 /* startup settings */
 
 var startupSettingInput = document.getElementById("startup-options");
