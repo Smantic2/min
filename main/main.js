@@ -434,11 +434,14 @@ app.on("ready", function () {
   // Initialize permission manager
   // Note: getWindowFromViewContents is defined in viewManager.js but available here
   // because app.on('ready') fires after all modules are loaded in the bundle
+  console.log("[DEBUG][AppReady] Initializing permission manager...");
   permissionManager.initialize({
     getWindowFromViewContents: getWindowFromViewContents,
   });
+  console.log("[DEBUG][AppReady] Permission manager initialized");
 
   // Register permission handlers for default session
+  console.log("[DEBUG][AppReady] Registering handlers for defaultSession...");
   const permissionHandlers = permissionManager.getHandlers();
   session.defaultSession.setPermissionRequestHandler(
     permissionHandlers.requestHandler
@@ -446,6 +449,7 @@ app.on("ready", function () {
   session.defaultSession.setPermissionCheckHandler(
     permissionHandlers.checkHandler
   );
+  console.log("[DEBUG][AppReady] Default session handlers registered");
 });
 
 app.on("open-url", function (e, url) {
@@ -617,7 +621,20 @@ app.on("ready", function () {
 
 // Handle dynamically created sessions
 app.on("session-created", function (session) {
+  console.log(
+    "[DEBUG][SessionCreated] ========== NEW SESSION CREATED =========="
+  );
+  console.log(
+    "[DEBUG][SessionCreated] Session partition:",
+    session.storagePath || "default/in-memory"
+  );
+  console.log("[DEBUG][SessionCreated] Registering permission handlers...");
+
   const permissionHandlers = permissionManager.getHandlers();
   session.setPermissionRequestHandler(permissionHandlers.requestHandler);
   session.setPermissionCheckHandler(permissionHandlers.checkHandler);
+
+  console.log(
+    "[DEBUG][SessionCreated] Permission handlers registered successfully"
+  );
 });

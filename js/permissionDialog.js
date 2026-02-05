@@ -147,16 +147,35 @@ var permissionDialog = {
    * Set up IPC listener for permission dialog requests from main process.
    */
   setupIPC: function () {
+    console.log(
+      "[DEBUG][PermDialog] Setting up IPC listener for showPermissionDialog..."
+    );
     ipc.on("showPermissionDialog", function (event, request) {
+      console.log(
+        "[DEBUG][PermDialog] ========== RECEIVED showPermissionDialog =========="
+      );
+      console.log(
+        "[DEBUG][PermDialog] Request:",
+        JSON.stringify(request, null, 2)
+      );
       permissionDialog.queueRequest(request);
     });
+    console.log("[DEBUG][PermDialog] IPC listener registered successfully");
   },
 
   queueRequest: function (request) {
+    console.log(
+      "[DEBUG][PermDialog] queueRequest called, isVisible:",
+      permissionDialog.isVisible
+    );
     if (permissionDialog.isVisible) {
+      console.log(
+        "[DEBUG][PermDialog] Modal already visible, queueing request"
+      );
       permissionDialog.requestQueue.push(request);
       return;
     }
+    console.log("[DEBUG][PermDialog] Showing modal...");
     permissionDialog.showModal(request);
   },
 
@@ -170,6 +189,13 @@ var permissionDialog = {
    * @param {string} request.description - Description for the modal
    */
   showModal: function (request) {
+    console.log("[DEBUG][PermDialog] ========== SHOWING MODAL ==========");
+    console.log("[DEBUG][PermDialog] request.site:", request.site);
+    console.log(
+      "[DEBUG][PermDialog] request.permissionType:",
+      request.permissionType
+    );
+
     permissionDialog.currentRequest = request;
     permissionDialog.isVisible = true;
 
@@ -180,8 +206,10 @@ var permissionDialog = {
       typeof tabs !== "undefined" && tabs.getSelected
         ? tabs.getSelected()
         : null;
+    console.log("[DEBUG][PermDialog] Selected tab ID:", selectedTabId);
     permissionDialog.hiddenTabId = selectedTabId;
     if (permissionDialog.hiddenTabId) {
+      console.log("[DEBUG][PermDialog] Hiding current view...");
       ipc.send("hideCurrentView");
     }
 
@@ -205,6 +233,7 @@ var permissionDialog = {
 
     // Show modal
     permissionDialog.modalContainer.hidden = false;
+    console.log("[DEBUG][PermDialog] Modal is now visible");
 
     // Focus primary button
     setTimeout(function () {
@@ -242,20 +271,42 @@ var permissionDialog = {
    * Sends granted response to main process and optionally persists the decision.
    */
   handleAllow: function () {
-    if (!permissionDialog.currentRequest) return;
+    console.log("[DEBUG][PermDialog] ========== ALLOW CLICKED ==========");
+    console.log(
+      "[DEBUG][PermDialog] currentRequest:",
+      permissionDialog.currentRequest
+        ? JSON.stringify(permissionDialog.currentRequest, null, 2)
+        : "null"
+    );
+
+    if (!permissionDialog.currentRequest) {
+      console.log("[DEBUG][PermDialog] No currentRequest, returning");
+      return;
+    }
 
     var remember = permissionDialog.rememberCheckbox.checked;
+    console.log("[DEBUG][PermDialog] remember:", remember);
 
-    // Send response to main process
-    ipc.send("permissionDialogResponse", {
+    var response = {
       site: permissionDialog.currentRequest.site,
       permissionType: permissionDialog.currentRequest.permissionType,
       granted: true,
       remember: remember,
-    });
+    };
+    console.log(
+      "[DEBUG][PermDialog] Sending permissionDialogResponse:",
+      JSON.stringify(response, null, 2)
+    );
+
+    // Send response to main process
+    ipc.send("permissionDialogResponse", response);
+    console.log("[DEBUG][PermDialog] IPC permissionDialogResponse sent");
 
     // Save permission if remember is checked
     if (remember) {
+      console.log(
+        "[DEBUG][PermDialog] Sending permission:set to save decision..."
+      );
       ipc.send("permission:set", {
         site: permissionDialog.currentRequest.site,
         permissionType: permissionDialog.currentRequest.permissionType,
@@ -272,20 +323,42 @@ var permissionDialog = {
    * Sends denied response to main process and optionally persists the decision.
    */
   handleDeny: function () {
-    if (!permissionDialog.currentRequest) return;
+    console.log("[DEBUG][PermDialog] ========== DENY CLICKED ==========");
+    console.log(
+      "[DEBUG][PermDialog] currentRequest:",
+      permissionDialog.currentRequest
+        ? JSON.stringify(permissionDialog.currentRequest, null, 2)
+        : "null"
+    );
+
+    if (!permissionDialog.currentRequest) {
+      console.log("[DEBUG][PermDialog] No currentRequest, returning");
+      return;
+    }
 
     var remember = permissionDialog.rememberCheckbox.checked;
+    console.log("[DEBUG][PermDialog] remember:", remember);
 
-    // Send response to main process
-    ipc.send("permissionDialogResponse", {
+    var response = {
       site: permissionDialog.currentRequest.site,
       permissionType: permissionDialog.currentRequest.permissionType,
       granted: false,
       remember: remember,
-    });
+    };
+    console.log(
+      "[DEBUG][PermDialog] Sending permissionDialogResponse:",
+      JSON.stringify(response, null, 2)
+    );
+
+    // Send response to main process
+    ipc.send("permissionDialogResponse", response);
+    console.log("[DEBUG][PermDialog] IPC permissionDialogResponse sent");
 
     // Save permission if remember is checked
     if (remember) {
+      console.log(
+        "[DEBUG][PermDialog] Sending permission:set to save decision..."
+      );
       ipc.send("permission:set", {
         site: permissionDialog.currentRequest.site,
         permissionType: permissionDialog.currentRequest.permissionType,
