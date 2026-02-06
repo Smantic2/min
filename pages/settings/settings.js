@@ -19,6 +19,17 @@ var openTabsInForegroundCheckbox = document.getElementById(
 var autoPlayCheckbox = document.getElementById("checkbox-enable-autoplay");
 var userAgentCheckbox = document.getElementById("checkbox-user-agent");
 var userAgentInput = document.getElementById("input-user-agent");
+var extensionsEnabledCheckbox = document.getElementById(
+  "checkbox-extensions-enabled"
+);
+var extensionsInstallButton = document.getElementById(
+  "extensions-install-button"
+);
+var extensionsEmptyState = document.getElementById("extensions-empty-state");
+var extensionsListContainer = document.getElementById(
+  "extensions-list-container"
+);
+var extensionsList = document.getElementById("extensions-list");
 
 function showRestartRequiredBanner() {
   banner.hidden = false;
@@ -869,6 +880,220 @@ function createBang(bang, snippet, redirect) {
 
   return li;
 }
+
+/* extensions management */
+
+const { ipcRenderer } = require("electron");
+
+const extensionCompatibilityText = {
+  supported: "settingsExtensionsCompatSupported",
+  partial: "settingsExtensionsCompatPartial",
+  unsupported: "settingsExtensionsCompatUnsupported",
+};
+
+function createExtensionActionButton(label, onClick) {
+  var button = document.createElement("button");
+  button.className = "extension-action-btn";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function renderExtensionList(data) {
+  var items = (data && data.items) || [];
+
+  if (items.length === 0) {
+    extensionsEmptyState.hidden = false;
+    extensionsListContainer.hidden = true;
+    extensionsList.innerHTML = "";
+    return;
+  }
+
+  extensionsEmptyState.hidden = true;
+  extensionsListContainer.hidden = false;
+  extensionsList.innerHTML = "";
+
+  items.forEach(function (item) {
+    var root = document.createElement("div");
+    root.className = "extension-item";
+
+    var header = document.createElement("div");
+    header.className = "extension-header";
+
+    var title = document.createElement("div");
+    var name = document.createElement("span");
+    name.className = "extension-name";
+    name.textContent = item.name || "Extension";
+    title.appendChild(name);
+
+    var version = document.createElement("span");
+    version.className = "extension-version";
+    version.textContent = item.version ? "v" + item.version : "";
+    title.appendChild(version);
+
+    header.appendChild(title);
+
+    var status = document.createElement("span");
+    status.className =
+      "extension-status-pill " + (item.enabled ? "enabled" : "disabled");
+    status.textContent = item.enabled
+      ? l("settingsExtensionsStatusEnabled")
+      : l("settingsExtensionsStatusDisabled");
+    header.appendChild(status);
+
+    root.appendChild(header);
+
+    var compatibility = document.createElement("div");
+    var compatibilityStatus =
+      item.compatibility && item.compatibility.status
+        ? item.compatibility.status
+        : "partial";
+    compatibility.className = "extension-compatibility " + compatibilityStatus;
+    compatibility.textContent =
+      l("settingsExtensionsCompatibility") +
+      ": " +
+      l(extensionCompatibilityText[compatibilityStatus]);
+    root.appendChild(compatibility);
+
+    var pathLine = document.createElement("div");
+    pathLine.className = "extension-path";
+    pathLine.textContent = l("settingsExtensionsPath") + ": " + item.path;
+    root.appendChild(pathLine);
+
+    if (item.lastError) {
+      var errorLine = document.createElement("div");
+      errorLine.className = "extension-error";
+      errorLine.textContent =
+        l("settingsExtensionsLastError") + ": " + item.lastError;
+      root.appendChild(errorLine);
+    }
+
+    if (
+      item.compatibility &&
+      item.compatibility.reasons &&
+      item.compatibility.reasons.partial &&
+      item.compatibility.reasons.partial.length > 0
+    ) {
+      var partialLine = document.createElement("div");
+      partialLine.className = "extension-warning";
+      partialLine.textContent = item.compatibility.reasons.partial.join("; ");
+      root.appendChild(partialLine);
+    }
+
+    var actions = document.createElement("div");
+    actions.className = "extension-actions";
+
+    if (item.enabled) {
+      actions.appendChild(
+        createExtensionActionButton(
+          l("settingsExtensionsDisable"),
+          function () {
+            ipcRenderer
+              .invoke("extensions:disable", item.localId)
+              .then(loadExtensions)
+              .catch(function (e) {
+                alert(e.message || e.toString());
+              });
+          }
+        )
+      );
+    } else {
+      actions.appendChild(
+        createExtensionActionButton(l("settingsExtensionsEnable"), function () {
+          ipcRenderer
+            .invoke("extensions:enable", item.localId)
+            .then(loadExtensions)
+            .catch(function (e) {
+              alert(e.message || e.toString());
+            });
+        })
+      );
+    }
+
+    actions.appendChild(
+      createExtensionActionButton(l("settingsExtensionsRemove"), function () {
+        ipcRenderer
+          .invoke("extensions:remove", item.localId)
+          .then(loadExtensions)
+          .catch(function (e) {
+            alert(e.message || e.toString());
+          });
+      })
+    );
+
+    root.appendChild(actions);
+
+    if (data.privateModePolicy === "disabled") {
+      var privateNote = document.createElement("div");
+      privateNote.className = "extension-policy-note";
+      privateNote.textContent = l("settingsExtensionsPrivateModeNote");
+      root.appendChild(privateNote);
+    }
+
+    if (
+      data.performance &&
+      data.performance.lastWarning &&
+      item.localId === data.performance.lastWarning.extensionId
+    ) {
+      var warningLine = document.createElement("div");
+      warningLine.className = "extension-warning";
+      warningLine.textContent = l(
+        "settingsExtensionsPerformanceWarning"
+      ).replace("%d", data.performance.lastWarning.durationMs);
+      root.appendChild(warningLine);
+    }
+
+    extensionsList.appendChild(root);
+  });
+}
+
+function loadExtensions() {
+  ipcRenderer
+    .invoke("extensions:getAll")
+    .then(function (data) {
+      extensionsEnabledCheckbox.checked = !!data.featureEnabled;
+      extensionsInstallButton.disabled = !data.featureEnabled;
+      renderExtensionList(data);
+    })
+    .catch(function () {
+      extensionsEmptyState.hidden = false;
+      extensionsListContainer.hidden = true;
+      extensionsList.innerHTML = "";
+    });
+}
+
+extensionsEnabledCheckbox.addEventListener("change", function () {
+  settings.set("extensionsFeatureEnabled", this.checked);
+  extensionsInstallButton.disabled = !this.checked;
+  loadExtensions();
+});
+
+extensionsInstallButton.addEventListener("click", function () {
+  ipcRenderer
+    .invoke("showOpenDialog", {
+      properties: ["openDirectory"],
+      title: l("settingsExtensionsChooseDirectory"),
+    })
+    .then(function (result) {
+      if (!result || result.length === 0) {
+        return;
+      }
+      return ipcRenderer.invoke("extensions:install", result[0]);
+    })
+    .then(function () {
+      loadExtensions();
+    })
+    .catch(function (e) {
+      alert(e.message || e.toString());
+    });
+});
+
+settings.get("extensionsFeatureEnabled", function (value) {
+  extensionsEnabledCheckbox.checked = value === true;
+  extensionsInstallButton.disabled = value !== true;
+});
+
+loadExtensions();
 
 /* site permissions management */
 

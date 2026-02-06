@@ -301,6 +301,110 @@ html {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* Extensions styles */
+
+#extensions-list-container {
+  max-width: 720px;
+}
+
+.extension-item {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 0.75em;
+  padding: 0.75em;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.extension-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+}
+
+.extension-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.extension-version {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-left: 0.4em;
+}
+
+.extension-status-pill {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 0.12em 0.6em;
+  border: 1px solid #ccc;
+}
+
+.extension-status-pill.enabled {
+  color: #34c759;
+  border-color: #34c759;
+}
+
+.extension-status-pill.disabled {
+  color: #ff3b30;
+  border-color: #ff3b30;
+}
+
+.extension-compatibility {
+  margin-top: 0.4em;
+  font-size: 12px;
+}
+
+.extension-compatibility.supported {
+  color: #34c759;
+}
+
+.extension-compatibility.partial {
+  color: #f59e0b;
+}
+
+.extension-compatibility.unsupported {
+  color: #ff3b30;
+}
+
+.extension-path,
+.extension-error,
+.extension-warning,
+.extension-policy-note {
+  margin-top: 0.3em;
+  font-size: 12px;
+  opacity: 0.9;
+  word-break: break-all;
+}
+
+.extension-error {
+  color: #ff3b30;
+}
+
+.extension-warning {
+  color: #f59e0b;
+}
+
+.extension-actions {
+  display: flex;
+  gap: 0.4em;
+  margin-top: 0.6em;
+}
+
+.extension-action-btn {
+  font-size: 12px;
+  padding: 0.2em 0.6em;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.extension-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* Navbar Color Customization Styles */
 #navbar-color-section {
   padding: 1em 0;

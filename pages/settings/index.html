@@ -353,6 +353,49 @@
       </div>
     </div>
 
+    <div class="settings-container" id="extensions-settings-container">
+      <h3 data-string="settingsExtensionsHeading"></h3>
+
+      <div class="setting-section">
+        <input type="checkbox" id="checkbox-extensions-enabled" />
+        <label
+          for="checkbox-extensions-enabled"
+          data-string="settingsExtensionsEnableToggle"
+        ></label>
+        <div
+          class="settings-info-subheading setting-secondary-label"
+          data-string="settingsExtensionsDescription"
+        ></div>
+      </div>
+
+      <div class="setting-section">
+        <button
+          id="extensions-install-button"
+          class="secondary-button"
+          data-string="settingsExtensionsInstall"
+        ></button>
+      </div>
+
+      <div class="setting-section">
+        <div
+          id="extensions-private-mode-note"
+          class="settings-info-subheading setting-secondary-label"
+          data-string="settingsExtensionsPrivateModeNote"
+        ></div>
+      </div>
+
+      <div class="setting-section" id="extensions-list-section">
+        <div
+          id="extensions-empty-state"
+          class="settings-info-subheading"
+          data-string="settingsExtensionsEmpty"
+        ></div>
+        <div id="extensions-list-container" hidden>
+          <div id="extensions-list"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-container" id="password-autofill-container">
       <h3 data-string="settingsPasswordAutoFillHeadline"></h3>
 

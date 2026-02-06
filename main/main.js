@@ -450,6 +450,10 @@ app.on("ready", function () {
     permissionHandlers.checkHandler
   );
   console.log("[DEBUG][AppReady] Default session handlers registered");
+
+  // Initialize extension manager
+  extensionManager.initialize();
+  extensionManager.loadEnabledExtensions("startup");
 });
 
 app.on("open-url", function (e, url) {
@@ -633,6 +637,8 @@ app.on("session-created", function (session) {
   const permissionHandlers = permissionManager.getHandlers();
   session.setPermissionRequestHandler(permissionHandlers.requestHandler);
   session.setPermissionCheckHandler(permissionHandlers.checkHandler);
+
+  extensionManager.onSessionCreated(session);
 
   console.log(
     "[DEBUG][SessionCreated] Permission handlers registered successfully"

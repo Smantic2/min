@@ -344,6 +344,25 @@
     "settingsSitePermissionsRemove": "Remove",
     "settingsSitePermissionsRemoveAll": "Remove all for this site",
     "settingsSitePermissionsGranted": "Granted",
-    "settingsSitePermissionsDenied": "Denied"
+    "settingsSitePermissionsDenied": "Denied",
+    "settingsExtensionsHeading": "Extensions",
+    "settingsExtensionsEnableToggle": "Enable extensions (experimental)",
+    "settingsExtensionsDescription": "Add optional browser functionality through unpacked Chromium extensions while keeping Min lightweight by default.",
+    "settingsExtensionsInstall": "Install unpacked extension",
+    "settingsExtensionsChooseDirectory": "Select extension directory",
+    "settingsExtensionsEmpty": "No extensions installed yet.",
+    "settingsExtensionsStatusEnabled": "Enabled",
+    "settingsExtensionsStatusDisabled": "Disabled",
+    "settingsExtensionsCompatibility": "Compatibility",
+    "settingsExtensionsCompatSupported": "Supported",
+    "settingsExtensionsCompatPartial": "Partial",
+    "settingsExtensionsCompatUnsupported": "Unsupported",
+    "settingsExtensionsEnable": "Enable",
+    "settingsExtensionsDisable": "Disable",
+    "settingsExtensionsRemove": "Remove",
+    "settingsExtensionsPath": "Path",
+    "settingsExtensionsLastError": "Last error",
+    "settingsExtensionsPrivateModeNote": "Extensions are disabled in private tabs.",
+    "settingsExtensionsPerformanceWarning": "Performance warning: last load took %dms"
   }
 }
